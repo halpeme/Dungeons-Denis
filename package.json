@@ -1,0 +1,32 @@
+{
+  "name": "dungeon-bridge",
+  "version": "1.0.0",
+  "description": "In-person D&D companion - fog of war dungeon maps with GM control",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "download-maps": "node scripts/download-maps.js"
+  },
+  "keywords": ["dnd", "dungeon", "tabletop", "rpg", "fog-of-war"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "@fastify/static": "^8.0.0",
+    "@fastify/websocket": "^11.0.0",
+    "better-sqlite3": "^11.0.0",
+    "nanoid": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

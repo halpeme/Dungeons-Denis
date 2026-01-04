@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Table Display - Dungeon & Denis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/table/table.css">
+</head>
+<body class="bg-black text-white min-h-screen overflow-hidden">
+  <!-- Connection Status (subtle) -->
+  <div id="connection-indicator" class="fixed top-4 right-4 z-50">
+    <div class="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded-full">
+      <span id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></span>
+      <span id="status-text" class="text-xs text-gray-400">Disconnected</span>
+    </div>
+  </div>
+
+  <!-- Join Screen -->
+  <div id="join-screen" class="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div class="text-center p-8 max-w-md">
+      <h1 class="text-4xl font-bold mb-2 text-amber-400">Dungeon & Denis</h1>
+      <p class="text-gray-400 mb-8">Table Display</p>
+
+      <div class="mb-6">
+        <label class="text-sm text-gray-400 block mb-2">Enter Session Code</label>
+        <input type="text" id="join-code-input"
+          class="w-full text-center text-4xl font-mono tracking-widest bg-gray-800 border-2 border-gray-700 rounded-lg p-4 uppercase"
+          maxlength="6" placeholder="______"
+          autocomplete="off" autocorrect="off" autocapitalize="characters">
+      </div>
+
+      <button id="join-btn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors">
+        Connect
+      </button>
+
+      <p id="join-error" class="mt-4 text-red-400 hidden"></p>
+    </div>
+  </div>
+
+  <!-- Main Display -->
+  <div id="main-display" class="fixed inset-0 hidden">
+    <!-- Blank Mode -->
+    <div id="display-blank" class="display-mode absolute inset-0 flex items-center justify-center bg-black">
+      <div class="text-center opacity-30">
+        <h1 class="text-6xl font-bold text-amber-400">Dungeon & Denis</h1>
+        <p class="text-2xl text-gray-400 mt-4">Awaiting GM...</p>
+      </div>
+    </div>
+
+    <!-- Map Mode -->
+    <div id="display-map" class="display-mode absolute inset-0 hidden">
+      <canvas id="map-canvas" class="w-full h-full"></canvas>
+    </div>
+
+    <!-- Handout Mode -->
+    <div id="display-handout" class="display-mode absolute inset-0 hidden flex items-center justify-center bg-black">
+      <img id="handout-image" class="max-w-full max-h-full object-contain" src="" alt="">
+    </div>
+
+    <!-- Decision Mode -->
+    <div id="display-decision" class="display-mode absolute inset-0 hidden flex items-center justify-center bg-black bg-opacity-80">
+      <div class="text-center max-w-4xl mx-auto p-8">
+        <h2 id="decision-title" class="text-5xl font-bold mb-12 text-amber-400"></h2>
+        <div id="decision-options" class="grid gap-6"></div>
+      </div>
+    </div>
+
+    <!-- Puzzle Mode -->
+    <div id="display-puzzle" class="display-mode absolute inset-0 hidden flex items-center justify-center bg-black bg-opacity-80">
+      <div id="puzzle-container" class="text-center max-w-4xl mx-auto p-8 w-full"></div>
+    </div>
+  </div>
+
+  <!-- Audio elements -->
+  <audio id="audio-reveal" preload="auto"></audio>
+  <audio id="audio-notification" preload="auto"></audio>
+
+  <script src="/shared/ws-client.js"></script>
+  <script src="/table/table.js"></script>
+</body>
+</html>

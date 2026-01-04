@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dungeon & Denis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+    .glow {
+      text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center text-white">
+  <div class="text-center p-8 max-w-lg">
+    <h1 class="text-5xl font-bold mb-4 glow text-amber-400">Dungeon & Denis</h1>
+    <p class="text-xl text-gray-300 mb-12">Real-time companion for in-person D&D sessions</p>
+
+    <div class="space-y-6">
+      <a href="/gm" class="block w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors shadow-lg">
+        Game Master
+      </a>
+
+      <div class="relative">
+        <div class="absolute inset-0 flex items-center">
+          <div class="w-full border-t border-gray-600"></div>
+        </div>
+        <div class="relative flex justify-center text-sm">
+          <span class="px-4 bg-transparent text-gray-400">or</span>
+        </div>
+      </div>
+
+      <a href="/table" class="block w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors shadow-lg">
+        Table Display
+      </a>
+    </div>
+
+    <p class="mt-12 text-gray-500 text-sm">
+      GM creates a session on their phone.<br>
+      Table display shows on the shared TV.
+    </p>
+  </div>
+</body>
+</html>

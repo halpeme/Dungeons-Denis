@@ -1,0 +1,152 @@
+/* GM Controller Styles */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+/* Prevent text selection on buttons */
+button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Minimap container */
+#minimap-container {
+  touch-action: none;
+}
+
+#minimap {
+  touch-action: none;
+  cursor: pointer;
+}
+
+/* Editor canvas */
+#editor-canvas {
+  touch-action: none;
+}
+
+/* Tab transitions */
+.tab-panel {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Active tool indicator */
+.tool-btn.active {
+  background-color: rgb(217, 119, 6);
+}
+
+/* Status bar glow effect */
+#status-dot.connected {
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.8);
+}
+
+/* Join code styling */
+#join-code {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.25em;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .tab-btn {
+    font-size: 0.75rem;
+    padding: 0.75rem 0.25rem;
+  }
+
+  /* Larger touch targets on mobile */
+  .brush-size-btn,
+  #mode-reveal-btn,
+  #mode-hide-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Zoom/rotate controls - stack vertically on small screens */
+  #zoom-rotate-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  #zoom-rotate-controls button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Tablet optimizations */
+@media (max-width: 1024px) and (min-width: 641px) {
+  .brush-size-btn,
+  #mode-reveal-btn,
+  #mode-hide-btn {
+    min-height: 40px;
+  }
+}
+
+/* Prevent zooming on double-tap */
+* {
+  touch-action: manipulation;
+}
+
+/* Map viewport - contains the canvas layers */
+#map-viewport {
+  max-height: calc(100vh - 340px);
+  max-height: calc(100dvh - 340px);
+}
+
+/* Map canvas container */
+#map-canvas-container canvas {
+  object-fit: contain;
+}
+
+/* Canvas stacking order */
+#map-canvas {
+  z-index: 1;
+}
+
+#figure-canvas {
+  z-index: 2;
+  pointer-events: none;
+}
+
+#fog-canvas {
+  z-index: 3;
+  pointer-events: auto;
+}
+
+/* Preview canvas should be on top with transparency */
+#preview-canvas {
+  z-index: 10;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Figure palette */
+.figure-btn {
+  min-width: 40px;
+  height: 40px;
+  background: #374151;
+  border: 2px solid #4b5563;
+  border-radius: 8px;
+  font-size: 20px;
+  cursor: grab;
+  transition: all 0.2s;
+}
+
+.figure-btn:active {
+  cursor: grabbing;
+  transform: scale(0.95);
+}
+
+.figure-btn:hover {
+  background: #4b5563;
+  border-color: #6b7280;
+}
