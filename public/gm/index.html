@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>GM Controller - Dungeon & Denis</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/gm/gm.css">
+  <link rel="stylesheet" href="/gm/gm.css?v=2">
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
+
+<body class="bg-gray-900 text-white">
   <!-- Connection Status Bar -->
-  <div id="status-bar" class="fixed top-0 left-0 right-0 bg-gray-800 p-2 flex justify-between items-center z-50">
+  <div id="status-bar" class="fixed top-0 left-0 right-0 bg-gray-800 p-2 flex justify-between items-center z-50 h-10">
     <span class="text-amber-400 font-bold">Dungeon & Denis</span>
     <div id="connection-status" class="flex items-center gap-2">
       <span class="w-2 h-2 rounded-full bg-red-500" id="status-dot"></span>
@@ -18,14 +21,15 @@
   </div>
 
   <!-- Main Content -->
-  <main class="pt-12 pb-20">
+  <main class="h-full w-full pt-10 overflow-hidden">
     <!-- Session Panel (shown when no session) -->
-    <div id="session-panel" class="p-4">
+    <div id="session-panel" class="p-4 h-full overflow-y-auto">
       <div class="max-w-md mx-auto text-center">
         <h1 class="text-2xl font-bold mb-6">Game Master</h1>
 
         <div id="create-session-panel">
-          <button id="create-session-btn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors">
+          <button id="create-session-btn"
+            class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-4 px-8 rounded-lg text-xl transition-colors">
             Create New Session
           </button>
 
@@ -45,8 +49,10 @@
           <div class="bg-gray-800 rounded-lg p-4 mb-4">
             <p class="text-gray-400 text-sm mb-2">Open this link on the TV/monitor:</p>
             <div class="flex gap-2">
-              <input type="text" id="session-table-link" readonly class="flex-1 bg-gray-700 text-gray-300 p-2 rounded text-sm font-mono">
-              <button id="copy-session-link-btn" class="bg-amber-600 hover:bg-amber-500 px-3 py-2 rounded text-sm font-bold">
+              <input type="text" id="session-table-link" readonly
+                class="flex-1 bg-gray-700 text-gray-300 p-2 rounded text-sm font-mono">
+              <button id="copy-session-link-btn"
+                class="bg-amber-600 hover:bg-amber-500 px-3 py-2 rounded text-sm font-bold">
                 Copy
               </button>
             </div>
@@ -61,13 +67,13 @@
     </div>
 
     <!-- Control Panel (shown when session active) -->
-    <div id="control-panel" class="hidden p-4">
+    <div id="control-panel" class="hidden p-1 h-full overflow-hidden">
       <!-- Tab Content -->
-      <div id="tab-content" class="bg-gray-800 rounded-lg p-4">
+      <div id="tab-content" class="bg-gray-800 rounded-lg p-1">
         <!-- Map Tab - Image-based Fog of War -->
-        <div id="tab-map" class="tab-panel">
+        <div id="tab-map" class="tab-panel h-full">
           <!-- Upload Section (shown when no image) -->
-          <div id="map-upload-section">
+          <div id="map-upload-section" class="h-full overflow-y-auto">
             <h3 class="font-bold mb-3">Map Image</h3>
             <input type="file" id="map-image-file" accept="image/*" class="hidden">
             <input type="file" id="map-camera-file" accept="image/*" capture="environment" class="hidden">
@@ -113,29 +119,53 @@
             </div>
 
             <!-- Confirm/Cancel buttons (overlay on map when preview exists) -->
-            <div id="preview-actions" class="hidden absolute bottom-16 left-2 right-2 z-50 flex gap-2">
-              <button id="cancel-preview-btn" class="flex-1 bg-gray-700/90 hover:bg-gray-600 p-3 rounded-lg font-bold shadow-lg backdrop-blur">
+            <div id="preview-actions" class="hidden absolute safe-bottom-16 left-2 right-2 z-50 flex gap-2">
+              <button id="cancel-preview-btn"
+                class="flex-1 bg-gray-700/90 hover:bg-gray-600 p-3 rounded-lg font-bold shadow-lg backdrop-blur">
                 Cancel
               </button>
-              <button id="confirm-preview-btn" class="flex-1 bg-green-600/90 hover:bg-green-500 p-3 rounded-lg font-bold shadow-lg backdrop-blur">
+              <button id="confirm-preview-btn"
+                class="flex-1 bg-green-600/90 hover:bg-green-500 p-3 rounded-lg font-bold shadow-lg backdrop-blur">
                 Confirm
               </button>
             </div>
           </div>
 
+          <!-- Reveal Size Controls (S/M/L) - Floating above mode toggle -->
+          <div id="reveal-size-controls"
+            class="hidden fixed safe-bottom-20 left-4 z-40 flex rounded-lg overflow-hidden shadow-lg mb-2">
+            <button id="size-s-btn"
+              class="w-10 h-10 bg-gray-700 hover:bg-gray-600 font-bold text-sm border-r border-gray-600">S</button>
+            <button id="size-m-btn"
+              class="w-10 h-10 bg-gray-700 hover:bg-gray-600 font-bold text-sm border-r border-gray-600">M</button>
+            <button id="size-l-btn" class="w-10 h-10 bg-gray-700 hover:bg-gray-600 font-bold text-sm">L</button>
+          </div>
+
           <!-- Mode Toggle (overlay on map) -->
-          <div id="mode-toggle" class="hidden fixed bottom-4 left-4 z-40 flex rounded-lg overflow-hidden shadow-lg">
+          <div id="mode-toggle"
+            class="hidden fixed safe-bottom-4 left-4 z-40 flex rounded-lg overflow-hidden shadow-lg">
             <button id="mode-zoom-btn" class="px-4 py-3 bg-amber-600 font-bold text-sm active">Zoom</button>
-            <button id="mode-draw-btn" class="px-4 py-3 bg-gray-700 font-bold text-sm">Draw</button>
+            <button id="reset-zoom-btn"
+              class="px-2 py-3 bg-gray-600 hover:bg-gray-500 font-bold text-xs border-l border-gray-500">Reset
+              Zoom</button>
+            <button id="mode-draw-btn"
+              class="px-4 py-3 bg-gray-700 font-bold text-sm border-l border-gray-500">Reveal</button>
           </div>
 
           <!-- Controls Toggle Button (overlay on map) -->
-          <button id="controls-toggle-btn" class="hidden fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-gray-700 shadow-lg flex items-center justify-center text-xl">
-            <span>Cog</span>
+          <button id="controls-toggle-btn"
+            class="hidden fixed safe-bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-gray-700 shadow-lg flex items-center justify-center text-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+              stroke="currentColor" class="w-6 h-6 text-gray-300">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
           </button>
 
           <!-- Collapsible Controls Panel (starts collapsed) -->
-          <div id="controls-panel" class="hidden fixed bottom-20 right-4 z-30 bg-gray-800 rounded-lg shadow-xl p-3 w-72 collapsed">
+          <div id="controls-panel"
+            class="hidden fixed safe-bottom-20 right-4 z-30 bg-gray-800 rounded-lg shadow-xl p-3 w-72 collapsed">
             <!-- Map Controls -->
             <div class="flex gap-2 mb-3">
               <button id="change-map-btn" class="flex-1 bg-gray-700 hover:bg-gray-600 p-2 rounded text-xs">
@@ -190,10 +220,13 @@
             <!-- Zoom & Rotate Controls -->
             <div class="flex items-center justify-between gap-2 mb-3">
               <div class="flex items-center gap-1">
-                <button id="zoom-out-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-sm font-bold">−</button>
+                <button id="zoom-out-btn"
+                  class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-sm font-bold">−</button>
                 <span id="zoom-level" class="text-xs text-gray-300 w-10 text-center">100%</span>
-                <button id="zoom-in-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-sm font-bold">+</button>
-                <button id="zoom-reset-btn" class="bg-gray-700 hover:bg-gray-600 px-2 h-8 rounded text-xs">Reset</button>
+                <button id="zoom-in-btn"
+                  class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-sm font-bold">+</button>
+                <button id="zoom-reset-btn"
+                  class="bg-gray-700 hover:bg-gray-600 px-2 h-8 rounded text-xs">Reset</button>
               </div>
               <div class="flex items-center gap-1">
                 <button id="rotate-left-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded">↺</button>
@@ -205,9 +238,11 @@
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-1">
                 <span class="text-xs text-gray-400">Brush:</span>
-                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-7 h-7 rounded text-xs" data-size="20">S</button>
+                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-7 h-7 rounded text-xs"
+                  data-size="20">S</button>
                 <button class="brush-size-btn bg-amber-600 w-7 h-7 rounded text-xs" data-size="40">M</button>
-                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-7 h-7 rounded text-xs" data-size="80">L</button>
+                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-7 h-7 rounded text-xs"
+                  data-size="80">L</button>
               </div>
               <div class="flex items-center gap-1">
                 <button id="mode-reveal-btn" class="bg-green-600 px-2 py-1 rounded text-xs">Reveal</button>
@@ -229,7 +264,8 @@
             <div class="border-t border-gray-700 pt-4">
               <p class="text-gray-400 text-sm mb-2">Player Display Link</p>
               <div class="flex gap-2">
-                <input type="text" id="table-link" readonly class="flex-1 bg-gray-800 text-gray-300 p-2 rounded text-sm font-mono">
+                <input type="text" id="table-link" readonly
+                  class="flex-1 bg-gray-800 text-gray-300 p-2 rounded text-sm font-mono">
                 <button id="copy-link-btn" class="bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded text-sm font-bold">
                   Copy
                 </button>
@@ -241,7 +277,8 @@
           <!-- Display Mode -->
           <h3 class="font-bold mb-3">Display Mode</h3>
           <div class="grid grid-cols-2 gap-2 mb-6">
-            <button class="display-mode-btn bg-gray-700 hover:bg-gray-600 p-3 rounded-lg" data-mode="blank">Blank</button>
+            <button class="display-mode-btn bg-gray-700 hover:bg-gray-600 p-3 rounded-lg"
+              data-mode="blank">Blank</button>
             <button class="display-mode-btn bg-gray-700 hover:bg-gray-600 p-3 rounded-lg" data-mode="map">Map</button>
           </div>
 
@@ -270,4 +307,5 @@
   <script src="/shared/ws-client.js"></script>
   <script src="/gm/gm.js"></script>
 </body>
+
 </html>

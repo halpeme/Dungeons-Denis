@@ -434,6 +434,7 @@ function sendCurrentStateToGm(socket: WebSocket, sessionId: string) {
   if (!session) return;
 
   // Send full session state to GM
+  const mapData = sessionManager.getMapData(sessionId);
   socket.send(JSON.stringify({
     type: 'session:state',
     payload: {
@@ -443,6 +444,8 @@ function sendCurrentStateToGm(socket: WebSocket, sessionId: string) {
       figures: session.figures,
       displayMode: session.displayMode,
       tableConnected: sessionManager.getTableConnections(sessionId).length > 0,
+      mapImage: mapData.mapImage,
+      fogMask: mapData.fogMask,
     },
   }));
 }

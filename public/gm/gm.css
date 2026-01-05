@@ -4,7 +4,15 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html,
 body {
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  position: fixed;
+  /* Locks viewport on mobile */
   overscroll-behavior: none;
 }
 
@@ -35,8 +43,13 @@ button {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* Active tool indicator */
@@ -84,6 +97,7 @@ button {
 
 /* Tablet optimizations */
 @media (max-width: 1024px) and (min-width: 641px) {
+
   .brush-size-btn,
   #mode-reveal-btn,
   #mode-hide-btn {
@@ -96,10 +110,18 @@ button {
   touch-action: manipulation;
 }
 
-/* Map viewport - contains the canvas layers (maximized by default) */
+/* Map viewport - contains the canvas layers (maximized for full screen) */
 #map-viewport {
-  max-height: calc(100vh - 120px);
-  max-height: calc(100dvh - 120px);
+  max-height: calc(100vh - 56px);
+  max-height: calc(100dvh - 56px);
+}
+
+/* On mobile, use even more space */
+@media (max-width: 640px) {
+  #map-viewport {
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+  }
 }
 
 /* Mode toggle button states */
@@ -108,7 +130,8 @@ button {
 }
 
 #mode-toggle button.active {
-  background-color: rgb(217, 119, 6); /* amber-600 */
+  background-color: rgb(217, 119, 6);
+  /* amber-600 */
 }
 
 /* Collapsible controls panel */
@@ -171,4 +194,17 @@ button {
 .figure-btn:hover {
   background: #4b5563;
   border-color: #6b7280;
+}
+
+/* Safe Area Insets for iOS (prevents overlap with home bar/URL bar) */
+.safe-bottom-4 {
+  bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
+}
+
+.safe-bottom-16 {
+  bottom: calc(7rem + env(safe-area-inset-bottom)) !important;
+}
+
+.safe-bottom-20 {
+  bottom: calc(9rem + env(safe-area-inset-bottom)) !important;
 }

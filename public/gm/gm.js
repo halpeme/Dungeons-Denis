@@ -259,6 +259,16 @@ function setMode(mode) {
   }
 
   updateCursor();
+
+  // Show/hide reveal size controls
+  const sizeControls = document.getElementById('reveal-size-controls');
+  if (sizeControls) {
+    if (mode === MODE.DRAW) {
+      sizeControls.classList.remove('hidden');
+    } else {
+      sizeControls.classList.add('hidden');
+    }
+  }
 }
 
 // Toggle controls panel visibility
@@ -359,11 +369,12 @@ window.addEventListener('resize', () => {
       // Resize container
       const container = document.getElementById('map-canvas-container');
       const mapViewportEl = document.getElementById('map-viewport');
-      const maxHeight = window.innerHeight - 340;
+      // Calculate max height: header (~40px) + footer tab bar (56px) + margins = 110px
+      const maxHeight = window.innerHeight - 110;
       const aspectRatio = mapImage.height / mapImage.width;
 
-      // Get viewport's parent width for reference
-      const parentWidth = mapViewportEl.parentElement.clientWidth - 32;
+      // Get viewport's parent width - use nearly full width
+      const parentWidth = mapViewportEl.parentElement.clientWidth;
       let displayWidth = parentWidth;
       let displayHeight = parentWidth * aspectRatio;
 
@@ -570,9 +581,10 @@ function initEventListeners() {
     setRotation(viewport.rotation + 90);
   });
 
-  // Mode toggle (Zoom / Draw)
+  // Mode toggle (Zoom / Reveal)
   document.getElementById('mode-zoom-btn')?.addEventListener('click', () => setMode(MODE.ZOOM));
   document.getElementById('mode-draw-btn')?.addEventListener('click', () => setMode(MODE.DRAW));
+  document.getElementById('reset-zoom-btn')?.addEventListener('click', () => resetViewport());
 
   // Controls panel toggle
   document.getElementById('controls-toggle-btn')?.addEventListener('click', toggleControlsPanel);
@@ -597,6 +609,48 @@ function initEventListeners() {
     }
   });
 
+  // PREVENT GLOBAL SCROLLING (Aggressive Mobile Fix)
+  document.addEventListener('touchmove', (e) => {
+    // Allow scrolling in specific containers
+    if (e.target.closest('.overflow-y-auto') ||
+      e.target.closest('#preset-maps-grid') ||
+      e.target.closest('#preset-maps-grid-loaded')) {
+      return;
+    }
+    // Prevent default touchmove (scrolling/bouncing) for everything else
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // Reveal Size Controls
+  document.getElementById('size-s-btn')?.addEventListener('click', () => setBrushSize('S'));
+  document.getElementById('size-m-btn')?.addEventListener('click', () => setBrushSize('M'));
+  document.getElementById('size-l-btn')?.addEventListener('click', () => setBrushSize('L'));
+
+  // Initial brush size setup
+  setBrushSize('L'); // Default to Large
+  // Preview Actions (Confirm/Cancel) - Explicit listeners to prevent canvas conflict
+  const confirmBtn = document.getElementById('confirm-preview-btn');
+  const cancelBtn = document.getElementById('cancel-preview-btn');
+
+  if (confirmBtn) {
+    // Stop propagation on pointerdown so canvas doesn't start drawing
+    confirmBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    confirmBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      confirmPreview();
+    });
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    cancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cancelPreview();
+    });
+  }
+
   // End session
   document.getElementById('end-session-btn')?.addEventListener('click', () => {
     if (confirm('Are you sure you want to end this session?')) {
@@ -604,6 +658,38 @@ function initEventListeners() {
       location.reload();
     }
   });
+}
+
+function setBrushSize(size) {
+  const sBtn = document.getElementById('size-s-btn');
+  const mBtn = document.getElementById('size-m-btn');
+  const lBtn = document.getElementById('size-l-btn');
+
+  // Basic styling reset
+  [sBtn, mBtn, lBtn].forEach(btn => {
+    if (btn) {
+      btn.classList.remove('bg-amber-600', 'text-white');
+      btn.classList.add('bg-gray-700', 'text-gray-300');
+    }
+  });
+
+  // Set active style and size
+  let activeBtn;
+  if (size === 'S') {
+    brushSize = 25;
+    activeBtn = sBtn;
+  } else if (size === 'M') {
+    brushSize = 50;
+    activeBtn = mBtn;
+  } else {
+    brushSize = 100;
+    activeBtn = lBtn;
+  }
+
+  if (activeBtn) {
+    activeBtn.classList.remove('bg-gray-700', 'text-gray-300');
+    activeBtn.classList.add('bg-amber-600', 'text-white');
+  }
 }
 
 // Map Canvas Setup
@@ -639,60 +725,188 @@ function initMapCanvas() {
   let initialPinchZoom = null;
   let initialPinchAngle = null;
   let initialPinchRotation = null;
+  let initialPinchCenter = null;
+  let initialViewportX = null;
+  let initialViewportY = null;
+  let pinchStarted = false;
+  let pinchStabilizeCount = 0;
 
-  // Handle pinch-to-zoom and two-finger rotate
+  // Smoothing for pinch
+  let pinchHistory = [];
+  const PINCH_HISTORY_SIZE = 5;
+
+  // For smooth rendering with requestAnimationFrame
+  let pinchAnimationFrame = null;
+  let pendingPinchUpdate = null;
+
+  // Handle pinch-to-zoom and two-finger rotate (only in zoom mode)
   fogCanvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
+      // Only allow pinch in zoom mode
+      if (currentMode !== MODE.ZOOM) {
+        return;
+      }
       e.preventDefault();
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      initialPinchDistance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      );
-      initialPinchZoom = viewport.scale;
-      initialPinchAngle = Math.atan2(
-        touch2.clientY - touch1.clientY,
-        touch2.clientX - touch1.clientX
-      );
-      initialPinchRotation = viewport.rotation;
+      pinchStarted = false;
+      pinchStabilizeCount = 0;
+      initialPinchDistance = null;
+      pendingPinchUpdate = null;
+      pinchHistory = [];
     }
   }, { passive: false });
 
+  // Render pinch updates with requestAnimationFrame for smooth animation
+  function processPinchUpdate() {
+    if (!pendingPinchUpdate) {
+      pinchAnimationFrame = null;
+      return;
+    }
+
+    const { newScale, newX, newY, newRotation } = pendingPinchUpdate;
+
+    // Apply viewport changes
+    viewport.scale = newScale;
+    viewport.x = newX;
+    viewport.y = newY;
+    if (newRotation !== null) {
+      viewport.rotation = newRotation;
+    }
+
+    updateZoomDisplay();
+    renderAll();
+
+    pendingPinchUpdate = null;
+    pinchAnimationFrame = null;
+  }
+
   fogCanvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2 && initialPinchDistance !== null) {
+    if (e.touches.length === 2) {
+      // Only allow pinch in zoom mode
+      if (currentMode !== MODE.ZOOM) {
+        return;
+      }
       e.preventDefault();
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
 
-      // Calculate pinch center for zoom-to-point
-      const pinchCenterX = (touch1.clientX + touch2.clientX) / 2;
-      const pinchCenterY = (touch1.clientY + touch2.clientY) / 2;
-
-      // Calculate new distance for zoom
+      // Calculate current values
+      const currentCenterX = (touch1.clientX + touch2.clientX) / 2;
+      const currentCenterY = (touch1.clientY + touch2.clientY) / 2;
       const currentDistance = Math.hypot(
         touch2.clientX - touch1.clientX,
         touch2.clientY - touch1.clientY
       );
-      const zoomRatio = currentDistance / initialPinchDistance;
-      const newScale = initialPinchZoom * zoomRatio;
 
-      // Zoom to pinch center
-      zoomAtPoint(pinchCenterX, pinchCenterY, newScale / viewport.scale);
+      // Stabilization period: wait several events before capturing baseline
+      // This allows finger positions to settle when placed quickly
+      // Use more stabilization when fingers are far apart (less stable)
+      if (initialPinchDistance === null) {
+        pinchStabilizeCount++;
+        // Adaptive stabilization: far-apart fingers need more settling time
+        const requiredStabilization = currentDistance > 200 ? 8 : 6;
+        if (pinchStabilizeCount < requiredStabilization) {
+          return; // Still stabilizing
+        }
+        // Capture baseline after stabilization
+        initialPinchDistance = currentDistance;
+        initialPinchZoom = viewport.scale;
+        initialPinchAngle = Math.atan2(
+          touch2.clientY - touch1.clientY,
+          touch2.clientX - touch1.clientX
+        );
+        initialPinchRotation = viewport.rotation;
+        initialPinchCenter = { x: currentCenterX, y: currentCenterY };
+        initialViewportX = viewport.x;
+        initialViewportY = viewport.y;
+        initialViewportX = viewport.x;
+        initialViewportY = viewport.y;
+        // Pre-fill history with current values so average starts identical to initial
+        // This heavily damps the first few frames of movement to prevent jumps
+        const startState = {
+          distance: currentDistance,
+          centerX: currentCenterX,
+          centerY: currentCenterY
+        };
+        pinchHistory = Array(PINCH_HISTORY_SIZE).fill(startState);
+        return;
+      }
 
-      // Calculate angle for rotation
+      // Add to history buffer for smoothing
+      pinchHistory.push({
+        distance: currentDistance,
+        centerX: currentCenterX,
+        centerY: currentCenterY
+      });
+      if (pinchHistory.length > PINCH_HISTORY_SIZE) {
+        pinchHistory.shift();
+      }
+
+      // Calculate averaged values
+      const avgDistance = pinchHistory.reduce((sum, i) => sum + i.distance, 0) / pinchHistory.length;
+      const avgCenterX = pinchHistory.reduce((sum, i) => sum + i.centerX, 0) / pinchHistory.length;
+      const avgCenterY = pinchHistory.reduce((sum, i) => sum + i.centerY, 0) / pinchHistory.length;
+
+      const zoomRatio = avgDistance / initialPinchDistance;
+
+      // Deadzone: require at least 10% change before starting pinch
+      if (!pinchStarted) {
+        if (Math.abs(zoomRatio - 1) < 0.10) {
+          return; // Not enough movement yet
+        }
+        // Past deadzone - reset initial values to current for smooth start
+        initialPinchDistance = currentDistance;
+        initialPinchCenter = { x: currentCenterX, y: currentCenterY };
+        initialViewportX = viewport.x;
+        initialViewportY = viewport.y;
+        initialPinchZoom = viewport.scale;
+        pinchStarted = true;
+        return;
+      }
+
+      const newZoomRatio = avgDistance / initialPinchDistance;
+      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, initialPinchZoom * newZoomRatio));
+
+      // Get the world point under the initial pinch center
+      const rect = mapCanvas.getBoundingClientRect();
+      const scaleX = mapCanvas.width / rect.width;
+      const scaleY = mapCanvas.height / rect.height;
+
+      // Convert initial pinch center to internal canvas coords
+      const initialInternalX = (initialPinchCenter.x - rect.left) * scaleX;
+      const initialInternalY = (initialPinchCenter.y - rect.top) * scaleY;
+
+      // The world point that was under the initial pinch center
+      const worldX = (initialInternalX - initialViewportX) / initialPinchZoom;
+      const worldY = (initialInternalY - initialViewportY) / initialPinchZoom;
+
+      // Convert current pinch center to internal canvas coords
+      const currentInternalX = (avgCenterX - rect.left) * scaleX;
+      const currentInternalY = (avgCenterY - rect.top) * scaleY;
+
+      // Calculate new viewport position
+      const newX = currentInternalX - worldX * newScale;
+      const newY = currentInternalY - worldY * newScale;
+
+      // Calculate angle for rotation (only snap at 90 degree increments)
+      let newRotation = null;
       const currentAngle = Math.atan2(
         touch2.clientY - touch1.clientY,
         touch2.clientX - touch1.clientX
       );
       const angleDelta = (currentAngle - initialPinchAngle) * 180 / Math.PI;
-      // Snap to 90 degree increments when past 45 degrees
       const snappedAngle = Math.round(angleDelta / 90) * 90;
       if (Math.abs(snappedAngle) >= 90) {
-        setRotation(initialPinchRotation + snappedAngle);
-        // Reset the initial angle to prevent continuous rotation
+        newRotation = ((initialPinchRotation + snappedAngle) % 360 + 360) % 360;
+        // Reset references after rotation snap
         initialPinchAngle = currentAngle;
-        initialPinchRotation = viewport.rotation;
+        initialPinchRotation = newRotation;
+      }
+
+      // Queue update for next animation frame (don't render directly in touch event)
+      pendingPinchUpdate = { newScale, newX, newY, newRotation };
+
+      if (!pinchAnimationFrame) {
+        pinchAnimationFrame = requestAnimationFrame(processPinchUpdate);
       }
     }
   }, { passive: false });
@@ -703,6 +917,16 @@ function initMapCanvas() {
       initialPinchZoom = null;
       initialPinchAngle = null;
       initialPinchRotation = null;
+      initialPinchCenter = null;
+      initialViewportX = null;
+      initialViewportY = null;
+      pinchStarted = false;
+      pinchStabilizeCount = 0;
+      pendingPinchUpdate = null;
+      if (pinchAnimationFrame) {
+        cancelAnimationFrame(pinchAnimationFrame);
+        pinchAnimationFrame = null;
+      }
     }
   });
 
@@ -1068,23 +1292,24 @@ function renderPresetMapsGrid(gridId, category) {
     ? presetMaps
     : presetMaps.filter(m => m.category === category);
 
+  // Sort alphabetically
+  filteredMaps.sort((a, b) => a.name.localeCompare(b.name));
+
   filteredMaps.forEach(map => {
     const isAvailable = availableMaps.has(map.id);
     const btn = document.createElement('button');
 
     if (isCompact) {
-      btn.className = `preset-map-btn text-xs p-1 rounded transition-colors ${
-        isAvailable
-          ? 'bg-gray-600 hover:bg-gray-500'
-          : 'bg-gray-800 opacity-50 cursor-not-allowed'
-      }`;
+      btn.className = `preset-map-btn text-xs p-1 rounded transition-colors ${isAvailable
+        ? 'bg-gray-600 hover:bg-gray-500'
+        : 'bg-gray-800 opacity-50 cursor-not-allowed'
+        }`;
       btn.textContent = map.name;
     } else {
-      btn.className = `preset-map-btn p-2 rounded-lg text-sm flex flex-col items-center gap-1 transition-colors ${
-        isAvailable
-          ? 'bg-gray-700 hover:bg-gray-600'
-          : 'bg-gray-800 opacity-50 cursor-not-allowed'
-      }`;
+      btn.className = `preset-map-btn p-2 rounded-lg text-sm flex flex-col items-center gap-1 transition-colors ${isAvailable
+        ? 'bg-gray-700 hover:bg-gray-600'
+        : 'bg-gray-800 opacity-50 cursor-not-allowed'
+        }`;
       btn.innerHTML = `
         <span class="font-bold text-xs">${map.name}</span>
         <span class="text-xs text-gray-400">${map.category}</span>
@@ -1136,18 +1361,18 @@ function setupMapCanvases(img) {
   const container = document.getElementById('map-canvas-container');
   const mapViewportEl = document.getElementById('map-viewport');
 
-  // Get parent width (the tab content panel - viewport's parent)
-  const parentWidth = mapViewportEl.parentElement.clientWidth - 32; // Account for padding
+  // Get parent width - use full width
+  const parentWidth = mapViewportEl.parentElement.clientWidth;
 
-  // Calculate max height based on viewport (account for buttons)
-  const maxHeight = window.innerHeight - 340;
+  // Calculate max height: header (~40px) + footer tab bar (56px) + margins = 110px
+  const maxHeight = window.innerHeight - 110;
 
   // Calculate dimensions that fit within constraints
   const aspectRatio = img.height / img.width;
   let displayWidth = parentWidth;
   let displayHeight = parentWidth * aspectRatio;
 
-  // If too tall, constrain by height
+  // If too tall, constrain by height to avoid footer overlap
   if (displayHeight > maxHeight) {
     displayHeight = maxHeight;
     displayWidth = displayHeight / aspectRatio;
@@ -1159,30 +1384,57 @@ function setupMapCanvases(img) {
   mapViewportEl.style.width = `${displayWidth}px`;
   mapViewportEl.style.height = `${displayHeight}px`;
 
-  // Set canvas dimensions to match image (for quality)
-  mapCanvas.width = img.width;
-  mapCanvas.height = img.height;
-  if (figureCanvas) {
-    figureCanvas.width = img.width;
-    figureCanvas.height = img.height;
+  // === PERFORMANCE OPTIMIZATION ===
+  // Limit canvas size to prevent mobile lag with large images
+  // Max 2048px on any dimension for good mobile performance
+  const MAX_CANVAS_SIZE = 2048;
+  let canvasWidth = img.width;
+  let canvasHeight = img.height;
+
+  if (canvasWidth > MAX_CANVAS_SIZE || canvasHeight > MAX_CANVAS_SIZE) {
+    const scale = Math.min(MAX_CANVAS_SIZE / canvasWidth, MAX_CANVAS_SIZE / canvasHeight);
+    canvasWidth = Math.round(canvasWidth * scale);
+    canvasHeight = Math.round(canvasHeight * scale);
+
+    // Create downscaled version of the image for better performance
+    const scaledCanvas = document.createElement('canvas');
+    scaledCanvas.width = canvasWidth;
+    scaledCanvas.height = canvasHeight;
+    const scaledCtx = scaledCanvas.getContext('2d');
+    scaledCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+
+    // Replace mapImage with the downscaled version
+    const scaledImg = new Image();
+    scaledImg.src = scaledCanvas.toDataURL('image/jpeg', 0.9);
+    mapImage = scaledImg;
+
+    console.log(`Image downscaled from ${img.width}x${img.height} to ${canvasWidth}x${canvasHeight} for performance`);
   }
-  fogCanvas.width = img.width;
-  fogCanvas.height = img.height;
+
+  // Set canvas dimensions (now potentially downscaled)
+  mapCanvas.width = canvasWidth;
+  mapCanvas.height = canvasHeight;
+  if (figureCanvas) {
+    figureCanvas.width = canvasWidth;
+    figureCanvas.height = canvasHeight;
+  }
+  fogCanvas.width = canvasWidth;
+  fogCanvas.height = canvasHeight;
   if (previewCanvas) {
-    previewCanvas.width = img.width;
-    previewCanvas.height = img.height;
+    previewCanvas.width = canvasWidth;
+    previewCanvas.height = canvasHeight;
   }
 
   // Create/resize offscreen fog data canvas
   fogDataCanvas = document.createElement('canvas');
-  fogDataCanvas.width = img.width;
-  fogDataCanvas.height = img.height;
+  fogDataCanvas.width = canvasWidth;
+  fogDataCanvas.height = canvasHeight;
   fogDataCtx = fogDataCanvas.getContext('2d', { willReadFrequently: true });
 
   // Create/resize offscreen preview data canvas
   previewDataCanvas = document.createElement('canvas');
-  previewDataCanvas.width = img.width;
-  previewDataCanvas.height = img.height;
+  previewDataCanvas.width = canvasWidth;
+  previewDataCanvas.height = canvasHeight;
   previewDataCtx = previewDataCanvas.getContext('2d', { willReadFrequently: true });
 
   // Clear any existing preview
@@ -1193,7 +1445,7 @@ function setupMapCanvases(img) {
   hidePreviewActions();
 
   // Make fog visible but semi-transparent for GM
-  fogCanvas.style.opacity = '0.7';
+  fogCanvas.style.opacity = '0.4';
 
   // Reset viewport to default (this also renders all layers)
   resetViewport();
@@ -1331,7 +1583,7 @@ function drawFigure(ctx, figure, opacity) {
 
   // Draw colored circle
   ctx.fillStyle = figure.type === 'enemy' ? '#ef4444' :
-                  figure.type === 'player' ? '#22c55e' : '#f59e0b';
+    figure.type === 'player' ? '#22c55e' : '#f59e0b';
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fill();
