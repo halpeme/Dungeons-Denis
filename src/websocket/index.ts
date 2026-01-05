@@ -204,6 +204,13 @@ function handleGmMessage(socket: WebSocket, state: ConnectionState, message: WSM
       break;
     }
 
+    case 'map:fogPartial': {
+      // Just broadcast partial update to table, do NOT update session persistence yet
+      // (Client will send full update debounced)
+      sessionManager.broadcastToTable(sessionId, message);
+      break;
+    }
+
     case 'map:clear': {
       sessionManager.updateSession(sessionId, {
         mapImage: null,

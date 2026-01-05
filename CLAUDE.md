@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Dungeon & Denis** - A real-time fog-of-war map controller for tabletop RPGs (Splittermond).
+**Dungeons & Denis** - A real-time fog-of-war map controller for tabletop RPGs (Splittermond).
 
 - **GM Controller** (`/gm`): Mobile-friendly interface for revealing/hiding map areas
 - **Table Display** (`/table`): Full-screen display for TV/monitor showing the player view
@@ -72,6 +72,11 @@ const viewport = {
 ### Pan/Draw Mode
 - At 100% zoom: Always draw mode
 - When zoomed in: Drag to pan by default, toggle "Draw Mode" button to draw
+
+### Map Interaction Logic
+- **Pinch-Zoom**: Anchored to the **initial** pinch center (not updated during gesture). This prevents "walking" or jumping when moving hands while zooming.
+- **Multi-touch**: Panning (`isPanning`) is immediately disabled when a second finger is detected (`e.touches.length === 2`) to prevent conflicting updates from single-touch pan logic.
+- **Viewport**: `screenToCanvas()` converts client coordinates -> internal canvas resolution -> applied viewport transform.
 
 ## Critical Warnings
 

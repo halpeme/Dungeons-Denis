@@ -1,25 +1,93 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
+import Database from 'better-sqlite3';
 
-// Note: These tests require the database to be initialized
-// Run with: npm test
+// === DATABASE MOCKING ===
+// Create an in-memory database for testing
+const testDb = new Database(':memory:');
 
-describe('Session Management', () => {
-  it('should generate 6-character join codes', () => {
-    // Join codes should be 6 characters
-    const codePattern = /^[A-Z0-9]{6}$/;
-    expect(codePattern.test('ABC123')).toBe(true);
-    expect(codePattern.test('ABCDEF')).toBe(true);
-    expect(codePattern.test('123456')).toBe(true);
+// Mock the database connection module
+vi.mock('../src/db/connection', () => ({
+  db: testDb,
+  closeDb: () => { }
+}));
+
+// Import modules AFTER mocking
+import { sessionManager } from '../src/session/manager';
+import { initializeSchema } from '../src/db/schema';
+
+// Initialize schema once for the test suite
+initializeSchema();
+
+// === INTEGRATION TESTS ===
+describe('Session Manager Integration', () => {
+  beforeEach(() => {
+    // Clear sessions table before each test
+    testDb.exec('DELETE FROM sessions');
+    // Ideally sessionManager would have a 'reset' for testing, but unique IDs per test should suffice.
   });
 
-  it('should generate unique session IDs', () => {
-    // Nanoid generates 21-character IDs by default
-    const id1 = 'abc123def456ghi789jkl';
-    const id2 = 'xyz987wvu654tsr321qpo';
-    expect(id1).not.toBe(id2);
+  afterAll(() => {
+    testDb.close();
+  });
+
+  it('should create a new session with valid defaults', () => {
+    const { session, gmToken } = sessionManager.createSession();
+
+    expect(session.id).toBeDefined();
+    expect(session.joinCode).toMatch(/^[A-Z0-9]{6}$/);
+    expect(gmToken).toBeDefined();
+    expect(session.gmToken).toBe(gmToken);
+    expect(session.fogState).toEqual([]);
+    expect(session.partyPosition).toEqual({ x: 0, y: 0 });
+
+    // Verify persistence
+    const saved = sessionManager.getSession(session.id);
+    expect(saved).toBeDefined();
+    expect(saved?.id).toBe(session.id);
+  });
+
+  it('should retrieve a session by join code', () => {
+    const { session } = sessionManager.createSession();
+    const retrieved = sessionManager.getSessionByCode(session.joinCode);
+    expect(retrieved?.id).toBe(session.id);
+  });
+
+  it('should validate GM tokens', () => {
+    const { session, gmToken } = sessionManager.createSession();
+    expect(sessionManager.validateGmToken(session.id, gmToken)).toBe(true);
+    expect(sessionManager.validateGmToken(session.id, 'wrong-token')).toBe(false);
+  });
+
+  it('should update session fields', () => {
+    const { session } = sessionManager.createSession();
+    const updates = {
+      displayMode: 'map' as const,
+      currentHandout: 'http://example.com/handout.jpg'
+    };
+
+    sessionManager.updateSession(session.id, updates);
+
+    const updated = sessionManager.getSession(session.id);
+    expect(updated?.displayMode).toBe('map');
+    expect(updated?.currentHandout).toBe('http://example.com/handout.jpg');
+  });
+
+  it('should handle in-memory map data updates', () => {
+    const { session } = sessionManager.createSession();
+
+    // Map data is NOT stored in DB, but in-memory
+    sessionManager.updateSession(session.id, {
+      mapImage: 'base64-data',
+      fogMask: 'fog-data'
+    });
+
+    const mapData = sessionManager.getMapData(session.id);
+    expect(mapData.mapImage).toBe('base64-data');
+    expect(mapData.fogMask).toBe('fog-data');
   });
 });
 
+// === ORIGINAL UNIT TESTS ===
 describe('Puzzle Validation', () => {
   describe('Riddle answers', () => {
     it('should match case-insensitive', () => {
@@ -64,13 +132,10 @@ describe('Puzzle Validation', () => {
   });
 });
 
-describe('Fog of War', () => {
+describe('Fog of War Logic', () => {
   it('should track revealed cells', () => {
     const fogState: number[][] = [];
-
-    // Reveal cell (5, 5)
     fogState.push([5, 5]);
-
     const revealedSet = new Set(fogState.map(c => `${c[0]},${c[1]}`));
     expect(revealedSet.has('5,5')).toBe(true);
     expect(revealedSet.has('0,0')).toBe(false);
@@ -79,10 +144,8 @@ describe('Fog of War', () => {
   it('should not duplicate revealed cells', () => {
     const fogState: number[][] = [[5, 5]];
     const existingSet = new Set(fogState.map(c => `${c[0]},${c[1]}`));
-
     const newCell = [5, 5];
     const isNew = !existingSet.has(`${newCell[0]},${newCell[1]}`);
-
     expect(isNew).toBe(false);
   });
 });

@@ -134,17 +134,7 @@ button {
   /* amber-600 */
 }
 
-/* Collapsible controls panel */
-#controls-panel {
-  transition: transform 0.2s ease, opacity 0.2s ease;
-  transform-origin: bottom right;
-}
 
-#controls-panel.collapsed {
-  transform: scale(0.95);
-  opacity: 0;
-  pointer-events: none;
-}
 
 /* Map canvas container */
 #map-canvas-container canvas {
@@ -196,6 +186,113 @@ button {
   border-color: #6b7280;
 }
 
+/* Selected figure button (tap-to-place mode) */
+.figure-btn.selected {
+  background: #d97706;
+  /* amber-600 */
+  border-color: #f59e0b;
+  /* amber-500 */
+  box-shadow: 0 0 0 2px #fbbf24;
+  /* amber-400 glow */
+  cursor: pointer;
+}
+
+/* Larger touch targets for figure buttons on mobile */
+@media (max-width: 640px) {
+  .figure-btn {
+    min-width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+}
+
+/* Floating Figure Palette Buttons */
+.figure-btn-float {
+  min-width: 36px;
+  height: 36px;
+  background: #374151;
+  border: 1px solid #4b5563;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.figure-btn-float:hover {
+  background: #4b5563;
+  border-color: #6b7280;
+  transform: scale(1.05);
+}
+
+.figure-btn-float:active {
+  transform: scale(0.95);
+}
+
+/* Selected state for floating palette */
+.figure-btn-float.selected {
+  background: #d97706;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px #fbbf24;
+}
+
+/* Placed state - figure is already on the map */
+.figure-btn.placed,
+.figure-btn-float.placed {
+  background: #1f2937;
+  border-color: #22c55e;
+  box-shadow: inset 0 0 0 2px #22c55e;
+  opacity: 0.7;
+}
+
+.figure-btn.placed::after,
+.figure-btn-float.placed::after {
+  content: '✓';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #22c55e;
+  color: white;
+  font-size: 10px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.figure-btn.placed,
+.figure-btn-float.placed {
+  position: relative;
+}
+
+/* Toggle button active state */
+#figure-palette-toggle.active {
+  background: #d97706;
+  box-shadow: 0 0 8px rgba(217, 119, 6, 0.5);
+}
+
+/* Floating palette animation */
+#figure-palette-expanded {
+  animation: slideIn 0.15s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) translateY(-50%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(-50%);
+  }
+}
+
 /* Safe Area Insets for iOS (prevents overlap with home bar/URL bar) */
 .safe-bottom-4 {
   bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
@@ -207,4 +304,61 @@ button {
 
 .safe-bottom-20 {
   bottom: calc(9rem + env(safe-area-inset-bottom)) !important;
+}
+
+/* Vertical Zoom Slider Styling */
+#zoom-slider {
+  transform: rotate(-90deg);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  touch-action: none;
+  /* Critical for mobile sliders */
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+#zoom-slider:active,
+#zoom-slider:hover {
+  opacity: 1;
+}
+
+/* Slider Track */
+#zoom-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: #374151;
+  border-radius: 4px;
+}
+
+#zoom-slider::-moz-range-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: #374151;
+  border-radius: 4px;
+}
+
+/* Slider Thumb */
+#zoom-slider::-webkit-slider-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #d97706;
+  /* amber-600 */
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -6px;
+  /* centering: (trackHeight 4px - thumbHeight 16px) / 2 */
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  border: 2px solid #fff;
+}
+
+#zoom-slider::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #d97706;
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
 }

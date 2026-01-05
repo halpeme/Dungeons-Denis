@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import path from 'path';
@@ -7,9 +7,42 @@ import { config } from './config.js';
 import { initializeSchema } from './db/schema.js';
 import { apiRoutes } from './routes/api.js';
 import { setupWebSocket } from './websocket/index.js';
+import { sessionManager } from './session/manager.js';
+import { closeDb } from './db/connection.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Store server instance for graceful shutdown
+let serverInstance: FastifyInstance | null = null;
+
+async function shutdown(signal: string) {
+  console.log(`\n${signal} received, shutting down gracefully...`);
+
+  if (!serverInstance) {
+    process.exit(0);
+  }
+
+  try {
+    // Close Fastify server (this will close all WebSocket connections)
+    console.log('Closing server...');
+    await serverInstance.close();
+
+    // Close database connection
+    console.log('Closing database...');
+    closeDb();
+
+    console.log('Server stopped cleanly');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+}
+
+// Register signal handlers
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 async function start() {
   // Initialize database
@@ -21,6 +54,9 @@ async function start() {
       level: 'info',
     },
   });
+
+  // Store for graceful shutdown
+  serverInstance = fastify;
 
   // Register WebSocket plugin
   await fastify.register(fastifyWebsocket);
@@ -55,9 +91,19 @@ async function start() {
   // Start server
   try {
     await fastify.listen({ port: config.port, host: config.host });
-    console.log(`\n🏰 Dungeon & Denis running at http://localhost:${config.port}`);
+    console.log(`\n🏰 Dungeons & Denis running at http://localhost:${config.port}`);
     console.log(`   GM Controller: http://localhost:${config.port}/gm`);
     console.log(`   Table Display: http://localhost:${config.port}/table\n`);
+
+    // Run cleanup on startup
+    const initialClean = sessionManager.cleanupOldSessions();
+    if (initialClean > 0) console.log(`[Cleanup] Removed ${initialClean} expired sessions`);
+
+    // Schedule periodic cleanup (every hour)
+    setInterval(() => {
+      const cleaned = sessionManager.cleanupOldSessions();
+      if (cleaned > 0) console.log(`[Cleanup] Removed ${cleaned} expired sessions`);
+    }, 60 * 60 * 1000);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

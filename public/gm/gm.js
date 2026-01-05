@@ -1,1253 +1,50 @@
 /**
- * GM Controller Logic - Image-based Fog of War
+ * GM Controller - Main Entry Point
+ * Dungeons & Denis - Image-based Fog of War
  */
 
-// State
-let ws = null;
-let sessionId = null;
-let gmToken = null;
-let joinCode = null;
-
-// Map/Fog state
-let mapImage = null;
-let mapCanvas = null;
-let mapCtx = null;
-let fogCanvas = null;
-let fogCtx = null;
-let fogDataCanvas = null;  // Offscreen canvas for fog data (used for transforms)
-let fogDataCtx = null;
-let previewCanvas = null;
-let previewCtx = null;
-let previewDataCanvas = null;  // Offscreen canvas for preview data
-let previewDataCtx = null;
-let brushSize = 40;
-let isRevealing = true; // true = reveal, false = hide
-let isDrawing = false;
-let hasPreview = false; // true when there's pending reveal preview
-
-// Viewport state (for canvas-based zoom/pan)
-const viewport = {
-  x: 0,        // Pan offset X (in screen pixels)
-  y: 0,        // Pan offset Y (in screen pixels)
-  scale: 1,    // Zoom level (0.5 to 3)
-  rotation: 0  // Rotation in degrees (0, 90, 180, 270)
-};
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 3;
-const ZOOM_STEP = 0.25;
-
-// Mode state
-const MODE = { ZOOM: 'zoom', DRAW: 'draw' };
-let currentMode = MODE.ZOOM;  // Default to zoom mode
-let isControlsPanelOpen = false;  // Start collapsed
-let isPanning = false;
-let lastPanX = 0;
-let lastPanY = 0;
-
-// Figure state
-let figureCanvas = null;
-let figureCtx = null;
-let figures = []; // Confirmed figures
-let previewFigure = null; // Figure being dragged/placed
-let isDraggingFigure = false;
-let draggedFigureId = null; // If moving existing figure
-let figurePointerStart = null; // Track pointer start for click vs drag
-const DRAG_THRESHOLD = 10; // Pixels to distinguish click from drag
-
-// Preset maps from Splittermond
-const presetMaps = [
-  // City Maps (Arakea)
-  { id: 'askalas-traum', name: 'Askalas Traum', category: 'City', path: '/maps/presets/askalas-traum.jpg' },
-  { id: 'eisenbrann', name: 'Eisenbrann', category: 'City', path: '/maps/presets/eisenbrann.jpg' },
-  { id: 'fulnia', name: 'Fulnia', category: 'City', path: '/maps/presets/fulnia.jpg' },
-  { id: 'gondalis', name: 'Gondalis', category: 'City', path: '/maps/presets/gondalis.jpg' },
-  { id: 'nuum', name: 'Nuum', category: 'City', path: '/maps/presets/nuum.jpg' },
-  { id: 'talaberis', name: 'Talaberis', category: 'City', path: '/maps/presets/talaberis.jpg' },
-  // City Maps (Binnenmeere)
-  { id: 'aldentrutz', name: 'Aldentrutz', category: 'City', path: '/maps/presets/aldentrutz.jpg' },
-  { id: 'garstal', name: 'Garstal', category: 'City', path: '/maps/presets/garstal.jpg' },
-  { id: 'herathis', name: 'Herathis', category: 'City', path: '/maps/presets/herathis.jpg' },
-  { id: 'jaldisruh', name: 'Jaldisruh', category: 'City', path: '/maps/presets/jaldisruh.jpg' },
-  { id: 'kyningswacht', name: 'Kyningswacht', category: 'City', path: '/maps/presets/kyningswacht.jpg' },
-  { id: 'sarnburg', name: 'Sarnburg', category: 'City', path: '/maps/presets/sarnburg.jpg' },
-  { id: 'suedfang', name: 'Südfang', category: 'City', path: '/maps/presets/suedfang.jpg' },
-  { id: 'sunnafest', name: 'Sunnafest', category: 'City', path: '/maps/presets/sunnafest.jpg' },
-  // City Maps (Takasadu)
-  { id: 'esmoda', name: 'Esmoda', category: 'City', path: '/maps/presets/esmoda.jpg' },
-  { id: 'inani', name: 'Inani', category: 'City', path: '/maps/presets/inani.jpg' },
-  { id: 'palitan', name: 'Palitan', category: 'City', path: '/maps/presets/palitan.jpg' },
-  { id: 'sentatau', name: 'Sentatau', category: 'City', path: '/maps/presets/sentatau.jpg' },
-  // City Maps (Pash-Anar)
-  { id: 'ezteraad', name: 'Ezteraad', category: 'City', path: '/maps/presets/ezteraad.jpg' },
-  { id: 'fedir', name: 'Fedir', category: 'City', path: '/maps/presets/fedir.jpg' },
-  { id: 'khanbur', name: 'Khanbur', category: 'City', path: '/maps/presets/khanbur.jpg' },
-  { id: 'lanrim', name: 'Lanrim', category: 'City', path: '/maps/presets/lanrim.jpg' },
-  { id: 'ranah', name: 'Ranah', category: 'City', path: '/maps/presets/ranah.jpg' },
-  { id: 'shinshamassu', name: 'Shinshamassu', category: 'City', path: '/maps/presets/shinshamassu.jpg' },
-  { id: 'tar-shalaaf', name: 'Tar-Shalaaf', category: 'City', path: '/maps/presets/tar-shalaaf.jpg' },
-  { id: 'vaipur', name: 'Vaipur', category: 'City', path: '/maps/presets/vaipur.jpg' },
-  { id: 'wuestentrutz', name: 'Wüstentrutz', category: 'City', path: '/maps/presets/wuestentrutz.jpg' },
-  // Regional Maps
-  { id: 'arkurien', name: 'Arkurien', category: 'Region', path: '/maps/presets/arkurien.jpg' },
-  { id: 'badashan', name: 'Badashan', category: 'Region', path: '/maps/presets/badashan.jpg' },
-  { id: 'dakardsmyr', name: 'Dakardsmyr', category: 'Region', path: '/maps/presets/dakardsmyr.jpg' },
-  { id: 'elyrea', name: 'Elyrea', category: 'Region', path: '/maps/presets/elyrea.jpg' },
-  { id: 'farukan', name: 'Farukan', category: 'Region', path: '/maps/presets/farukan.jpg' },
-  { id: 'flammensenke', name: 'Flammensenke', category: 'Region', path: '/maps/presets/flammensenke.jpg' },
-  { id: 'mahaluu-archipel', name: 'Mahaluu Archipel', category: 'Region', path: '/maps/presets/mahaluu-archipel.jpg' },
-  { id: 'mertalischer-staedtebund', name: 'Mertalischer Städtebund', category: 'Region', path: '/maps/presets/mertalischer-staedtebund.jpg' },
-  { id: 'pangawai', name: 'Pangawai', category: 'Region', path: '/maps/presets/pangawai.jpg' },
-  { id: 'patalis', name: 'Patalis', category: 'Region', path: '/maps/presets/patalis.jpg' },
-  { id: 'sadu', name: 'Sadu', category: 'Region', path: '/maps/presets/sadu.jpg' },
-  { id: 'selenia', name: 'Selenia', category: 'Region', path: '/maps/presets/selenia.jpg' },
-  { id: 'suderinseln', name: 'Suderinseln', category: 'Region', path: '/maps/presets/suderinseln.jpg' },
-  { id: 'surmakar', name: 'Surmakar', category: 'Region', path: '/maps/presets/surmakar.jpg' },
-  { id: 'tar-kesh', name: 'Tar-Kesh', category: 'Region', path: '/maps/presets/tar-kesh.jpg' },
-  { id: 'turubar', name: 'Turubar', category: 'Region', path: '/maps/presets/turubar.jpg' },
-  { id: 'ungebrochen', name: 'Ungebrochen', category: 'Region', path: '/maps/presets/ungebrochen.jpg' },
-  { id: 'unreich', name: 'Unreich', category: 'Region', path: '/maps/presets/unreich.jpg' },
-  { id: 'wandernde-waelder', name: 'Wandernde Wälder', category: 'Region', path: '/maps/presets/wandernde-waelder.jpg' },
-  { id: 'zhoujiang', name: 'Zhoujiang', category: 'Region', path: '/maps/presets/zhoujiang.jpg' },
-];
-
-// === VIEWPORT TRANSFORM FUNCTIONS ===
-
-// Convert screen coordinates to canvas coordinates
-function screenToCanvas(clientX, clientY) {
-  const rect = mapCanvas.getBoundingClientRect();
-
-  // Get position relative to the canvas element (in CSS/display pixels)
-  const displayX = clientX - rect.left;
-  const displayY = clientY - rect.top;
-
-  // Scale from display size to internal canvas size
-  // (canvas internal size may differ from CSS display size)
-  const scaleX = mapCanvas.width / rect.width;
-  const scaleY = mapCanvas.height / rect.height;
-  const internalX = displayX * scaleX;
-  const internalY = displayY * scaleY;
-
-  // Apply inverse viewport transform (undo pan and zoom)
-  const x = (internalX - viewport.x) / viewport.scale;
-  const y = (internalY - viewport.y) / viewport.scale;
-
-  // Handle rotation (rotate point around canvas center)
-  if (viewport.rotation !== 0) {
-    const cx = mapCanvas.width / 2;
-    const cy = mapCanvas.height / 2;
-    const radians = -viewport.rotation * Math.PI / 180;
-    const cos = Math.cos(radians);
-    const sin = Math.sin(radians);
-    const dx = x - cx;
-    const dy = y - cy;
-    return {
-      x: cx + dx * cos - dy * sin,
-      y: cy + dx * sin + dy * cos
-    };
-  }
-
-  return { x, y };
-}
-
-// Apply viewport transform to a canvas context
-function applyViewportTransform(ctx) {
-  const cx = mapCanvas.width / 2;
-  const cy = mapCanvas.height / 2;
-
-  ctx.translate(viewport.x, viewport.y);
-  ctx.scale(viewport.scale, viewport.scale);
-
-  if (viewport.rotation !== 0) {
-    ctx.translate(cx, cy);
-    ctx.rotate(viewport.rotation * Math.PI / 180);
-    ctx.translate(-cx, -cy);
-  }
-}
-
-// Zoom centered on a specific screen point
-function zoomAtPoint(clientX, clientY, scaleFactor) {
-  // Get canvas point under cursor BEFORE zoom
-  const worldPoint = screenToCanvas(clientX, clientY);
-
-  // Apply zoom
-  const newScale = viewport.scale * scaleFactor;
-  viewport.scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
-
-  // Convert screen position to internal canvas coordinates
-  const rect = mapCanvas.getBoundingClientRect();
-  const displayX = clientX - rect.left;
-  const displayY = clientY - rect.top;
-  const scaleX = mapCanvas.width / rect.width;
-  const scaleY = mapCanvas.height / rect.height;
-  const internalX = displayX * scaleX;
-  const internalY = displayY * scaleY;
-
-  // Adjust pan so cursor stays on same world point
-  viewport.x = internalX - worldPoint.x * viewport.scale;
-  viewport.y = internalY - worldPoint.y * viewport.scale;
-
-  updateZoomDisplay();
-  updateCursor();
-  renderAll();
-}
-
-// Set zoom level (for button controls)
-function setZoom(newZoom) {
-  const rect = mapCanvas.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  zoomAtPoint(centerX, centerY, newZoom / viewport.scale);
-}
-
-// Set rotation
-function setRotation(newRotation) {
-  viewport.rotation = ((newRotation % 360) + 360) % 360;
-  renderAll();
-}
-
-// Reset viewport to default
-function resetViewport() {
-  viewport.x = 0;
-  viewport.y = 0;
-  viewport.scale = 1;
-  viewport.rotation = 0;
-  updateZoomDisplay();
-  updateCursor();
-  renderAll();
-}
-
-// Update zoom level display
-function updateZoomDisplay() {
-  const display = document.getElementById('zoom-level');
-  if (display) {
-    display.textContent = `${Math.round(viewport.scale * 100)}%`;
-  }
-}
-
-// Update cursor based on mode
-function updateCursor() {
-  if (!fogCanvas) return;
-
-  if (currentMode === MODE.ZOOM) {
-    fogCanvas.style.cursor = isPanning ? 'grabbing' : 'grab';
-  } else {
-    fogCanvas.style.cursor = 'crosshair';
-  }
-}
-
-// Set interaction mode (zoom or draw)
-function setMode(mode) {
-  currentMode = mode;
-
-  const zoomBtn = document.getElementById('mode-zoom-btn');
-  const drawBtn = document.getElementById('mode-draw-btn');
-
-  if (zoomBtn) {
-    zoomBtn.classList.toggle('active', mode === MODE.ZOOM);
-    zoomBtn.classList.toggle('bg-amber-600', mode === MODE.ZOOM);
-    zoomBtn.classList.toggle('bg-gray-700', mode !== MODE.ZOOM);
-  }
-  if (drawBtn) {
-    drawBtn.classList.toggle('active', mode === MODE.DRAW);
-    drawBtn.classList.toggle('bg-amber-600', mode === MODE.DRAW);
-    drawBtn.classList.toggle('bg-gray-700', mode !== MODE.DRAW);
-  }
-
-  // Cancel any active drawing when switching to zoom
-  if (mode === MODE.ZOOM && isDrawing) {
-    isDrawing = false;
-  }
-
-  updateCursor();
-
-  // Show/hide reveal size controls
-  const sizeControls = document.getElementById('reveal-size-controls');
-  if (sizeControls) {
-    if (mode === MODE.DRAW) {
-      sizeControls.classList.remove('hidden');
-    } else {
-      sizeControls.classList.add('hidden');
-    }
-  }
-}
-
-// Toggle controls panel visibility
-function toggleControlsPanel() {
-  isControlsPanelOpen = !isControlsPanelOpen;
-
-  const panel = document.getElementById('controls-panel');
-  const toggleBtn = document.getElementById('controls-toggle-btn');
-
-  if (panel) panel.classList.toggle('collapsed', !isControlsPanelOpen);
-  if (toggleBtn) {
-    toggleBtn.querySelector('span').textContent = isControlsPanelOpen ? 'X' : 'Cog';
-  }
-}
-
-// Render all canvas layers with viewport transform
-function renderAll() {
-  if (!mapImage || !mapCanvas) return;
-
-  // Render map
-  mapCtx.setTransform(1, 0, 0, 1, 0, 0);
-  mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
-  applyViewportTransform(mapCtx);
-  mapCtx.drawImage(mapImage, 0, 0);
-
-  // Render fog
-  renderFogLayer();
-
-  // Render figures
-  renderFiguresLayer();
-
-  // Render preview
-  renderPreviewLayer();
-}
-
-// Render fog layer with viewport transform
-function renderFogLayer() {
-  if (!fogCtx || !fogCanvas || !fogDataCanvas) return;
-
-  // Clear display canvas
-  fogCtx.setTransform(1, 0, 0, 1, 0, 0);
-  fogCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
-
-  // Apply viewport transform and draw from fog data
-  applyViewportTransform(fogCtx);
-  fogCtx.drawImage(fogDataCanvas, 0, 0);
-}
-
-// Render figures layer with viewport transform
-function renderFiguresLayer() {
-  if (!figureCtx || !figureCanvas) return;
-  figureCtx.setTransform(1, 0, 0, 1, 0, 0);
-  figureCtx.clearRect(0, 0, figureCanvas.width, figureCanvas.height);
-  applyViewportTransform(figureCtx);
-  figures.forEach(fig => drawFigure(figureCtx, fig, 1.0));
-}
-
-// Render preview layer with viewport transform
-function renderPreviewLayer() {
-  if (!previewCtx || !previewCanvas || !previewDataCanvas) return;
-
-  // Clear display canvas
-  previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-
-  // Apply viewport transform and draw from preview data
-  applyViewportTransform(previewCtx);
-  previewCtx.drawImage(previewDataCanvas, 0, 0);
-}
-
-// DOM Elements
-const elements = {
-  statusDot: document.getElementById('status-dot'),
-  statusText: document.getElementById('status-text'),
-  sessionPanel: document.getElementById('session-panel'),
-  controlPanel: document.getElementById('control-panel'),
-  createSessionPanel: document.getElementById('create-session-panel'),
-  joinCodePanel: document.getElementById('join-code-panel'),
-  joinCode: document.getElementById('join-code'),
-  tableConnected: document.getElementById('table-connected'),
-  settingsJoinCode: document.getElementById('settings-join-code'),
-};
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  initWebSocket();
-  initEventListeners();
-  initMapCanvas();
-  initPresetMaps();
-});
-
-// Handle window resize - debounced to avoid excessive redraws
-let resizeTimeout;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimeout);
-  resizeTimeout = setTimeout(() => {
-    if (mapImage) {
-      // Resize container
-      const container = document.getElementById('map-canvas-container');
-      const mapViewportEl = document.getElementById('map-viewport');
-      // Calculate max height: header (~40px) + footer tab bar (56px) + margins = 110px
-      const maxHeight = window.innerHeight - 110;
-      const aspectRatio = mapImage.height / mapImage.width;
-
-      // Get viewport's parent width - use nearly full width
-      const parentWidth = mapViewportEl.parentElement.clientWidth;
-      let displayWidth = parentWidth;
-      let displayHeight = parentWidth * aspectRatio;
-
-      if (displayHeight > maxHeight) {
-        displayHeight = maxHeight;
-        displayWidth = displayHeight / aspectRatio;
-      }
-
-      container.style.width = `${displayWidth}px`;
-      container.style.height = `${displayHeight}px`;
-      mapViewportEl.style.width = `${displayWidth}px`;
-      mapViewportEl.style.height = `${displayHeight}px`;
-
-      // Re-render with current viewport state
-      renderAll();
-    }
-  }, 100);
-});
-
-// WebSocket Setup
-function initWebSocket() {
-  ws = new WSClient();
-
-  ws.on('connected', () => {
-    updateConnectionStatus(true);
-    const saved = getSavedSession();
-    if (saved) {
-      ws.reconnectSession(saved.sessionId, saved.gmToken);
-    }
-  });
-
-  ws.on('disconnected', () => {
-    updateConnectionStatus(false);
-  });
-
-  ws.on('session:created', (data) => {
-    sessionId = data.sessionId;
-    gmToken = data.gmToken;
-    joinCode = data.joinCode;
-    saveSession();
-    showJoinCode();
-    showControlPanel();
-  });
-
-  ws.on('session:reconnected', (data) => {
-    sessionId = data.sessionId;
-    joinCode = data.joinCode;
-    showJoinCode();
-    showControlPanel();
-  });
-
-  ws.on('session:state', (data) => {
-    // Restore map state after reconnect
-    if (data.mapImage) {
-      loadMapFromData(data.mapImage, data.fogMask);
-    }
-    // Restore figures after reconnect
-    if (data.figures && data.figures.length > 0) {
-      figures = data.figures;
-      renderFigures();
-    }
-  });
-
-  ws.on('table:connected', () => {
-    elements.tableConnected.textContent = 'Connected';
-    elements.tableConnected.className = 'ml-2 text-green-400';
-    // Send current map state to newly connected table
-    if (mapImage) {
-      sendMapState();
-    }
-  });
-
-  ws.on('table:disconnected', () => {
-    elements.tableConnected.textContent = 'Not Connected';
-    elements.tableConnected.className = 'ml-2 text-red-400';
-  });
-
-  ws.on('error', (data) => {
-    console.error('Server error:', data);
-    alert(`Error: ${data.message}`);
-  });
-
-  ws.connect();
-}
-
-// Event Listeners
-function initEventListeners() {
-  // Create session
-  document.getElementById('create-session-btn').addEventListener('click', () => {
-    ws.createSession();
-  });
-
-  // Reconnect
-  document.getElementById('reconnect-btn').addEventListener('click', () => {
-    const saved = getSavedSession();
-    if (saved) {
-      ws.reconnectSession(saved.sessionId, saved.gmToken);
-    } else {
-      alert('No saved session found');
-    }
-  });
-
-  // Copy code
-  document.getElementById('copy-code-btn').addEventListener('click', () => {
-    navigator.clipboard.writeText(joinCode);
-    document.getElementById('copy-code-btn').textContent = 'Copied!';
-    setTimeout(() => {
-      document.getElementById('copy-code-btn').textContent = 'Copy Code';
-    }, 2000);
-  });
-
-  // Copy session table link
-  document.getElementById('copy-session-link-btn')?.addEventListener('click', () => {
-    const link = document.getElementById('session-table-link');
-    if (link) {
-      navigator.clipboard.writeText(link.value);
-      const btn = document.getElementById('copy-session-link-btn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => {
-        btn.textContent = 'Copy';
-      }, 2000);
-    }
-  });
-
-  // Tab navigation
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      showTab(btn.dataset.tab);
-    });
-  });
-
-  // Map upload - Gallery
-  document.getElementById('upload-map-btn').addEventListener('click', () => {
-    document.getElementById('map-image-file').click();
-  });
-
-  document.getElementById('map-image-file').addEventListener('change', handleMapUpload);
-
-  // Map upload - Camera
-  document.getElementById('camera-map-btn')?.addEventListener('click', () => {
-    document.getElementById('map-camera-file').click();
-  });
-
-  document.getElementById('map-camera-file')?.addEventListener('change', handleMapUpload);
-
-  document.getElementById('change-map-btn')?.addEventListener('click', () => {
-    document.getElementById('map-image-file').click();
-  });
-
-  // Fog controls
-  document.getElementById('clear-fog-btn')?.addEventListener('click', clearFog);
-  document.getElementById('reveal-all-btn')?.addEventListener('click', revealAll);
-
-  // Brush size
-  document.querySelectorAll('.brush-size-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      brushSize = parseInt(btn.dataset.size);
-      document.querySelectorAll('.brush-size-btn').forEach(b => {
-        b.classList.remove('bg-amber-600');
-        b.classList.add('bg-gray-700');
-      });
-      btn.classList.remove('bg-gray-700');
-      btn.classList.add('bg-amber-600');
-    });
-  });
-
-  // Mode toggle
-  document.getElementById('mode-reveal-btn')?.addEventListener('click', () => {
-    isRevealing = true;
-    document.getElementById('mode-reveal-btn').classList.add('bg-green-600');
-    document.getElementById('mode-reveal-btn').classList.remove('bg-gray-700');
-    document.getElementById('mode-hide-btn').classList.remove('bg-red-600');
-    document.getElementById('mode-hide-btn').classList.add('bg-gray-700');
-  });
-
-  document.getElementById('mode-hide-btn')?.addEventListener('click', () => {
-    // Cancel any pending preview when switching to hide mode
-    if (hasPreview) {
-      cancelPreview();
-    }
-    isRevealing = false;
-    document.getElementById('mode-hide-btn').classList.add('bg-red-600');
-    document.getElementById('mode-hide-btn').classList.remove('bg-gray-700');
-    document.getElementById('mode-reveal-btn').classList.remove('bg-green-600');
-    document.getElementById('mode-reveal-btn').classList.add('bg-gray-700');
-  });
-
-  // Zoom controls
-  document.getElementById('zoom-in-btn')?.addEventListener('click', () => {
-    setZoom(viewport.scale + ZOOM_STEP);
-  });
-  document.getElementById('zoom-out-btn')?.addEventListener('click', () => {
-    setZoom(viewport.scale - ZOOM_STEP);
-  });
-  document.getElementById('zoom-reset-btn')?.addEventListener('click', () => {
-    resetViewport();
-  });
-
-  // Rotation controls
-  document.getElementById('rotate-left-btn')?.addEventListener('click', () => {
-    setRotation(viewport.rotation - 90);
-  });
-  document.getElementById('rotate-right-btn')?.addEventListener('click', () => {
-    setRotation(viewport.rotation + 90);
-  });
-
-  // Mode toggle (Zoom / Reveal)
-  document.getElementById('mode-zoom-btn')?.addEventListener('click', () => setMode(MODE.ZOOM));
-  document.getElementById('mode-draw-btn')?.addEventListener('click', () => setMode(MODE.DRAW));
-  document.getElementById('reset-zoom-btn')?.addEventListener('click', () => resetViewport());
-
-  // Controls panel toggle
-  document.getElementById('controls-toggle-btn')?.addEventListener('click', toggleControlsPanel);
-
-  // Display mode
-  document.querySelectorAll('.display-mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      ws.send('display:mode', { mode: btn.dataset.mode });
-    });
-  });
-
-  // Copy table link
-  document.getElementById('copy-link-btn')?.addEventListener('click', () => {
-    const tableLink = document.getElementById('table-link');
-    if (tableLink) {
-      navigator.clipboard.writeText(tableLink.value);
-      const btn = document.getElementById('copy-link-btn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => {
-        btn.textContent = 'Copy';
-      }, 2000);
-    }
-  });
-
-  // PREVENT GLOBAL SCROLLING (Aggressive Mobile Fix)
-  document.addEventListener('touchmove', (e) => {
-    // Allow scrolling in specific containers
-    if (e.target.closest('.overflow-y-auto') ||
-      e.target.closest('#preset-maps-grid') ||
-      e.target.closest('#preset-maps-grid-loaded')) {
-      return;
-    }
-    // Prevent default touchmove (scrolling/bouncing) for everything else
-    if (e.cancelable) {
-      e.preventDefault();
-    }
-  }, { passive: false });
-
-  // Reveal Size Controls
-  document.getElementById('size-s-btn')?.addEventListener('click', () => setBrushSize('S'));
-  document.getElementById('size-m-btn')?.addEventListener('click', () => setBrushSize('M'));
-  document.getElementById('size-l-btn')?.addEventListener('click', () => setBrushSize('L'));
-
-  // Initial brush size setup
-  setBrushSize('L'); // Default to Large
-  // Preview Actions (Confirm/Cancel) - Explicit listeners to prevent canvas conflict
-  const confirmBtn = document.getElementById('confirm-preview-btn');
-  const cancelBtn = document.getElementById('cancel-preview-btn');
-
-  if (confirmBtn) {
-    // Stop propagation on pointerdown so canvas doesn't start drawing
-    confirmBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-    confirmBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      confirmPreview();
-    });
-  }
-
-  if (cancelBtn) {
-    cancelBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-    cancelBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      cancelPreview();
-    });
-  }
-
-  // End session
-  document.getElementById('end-session-btn')?.addEventListener('click', () => {
-    if (confirm('Are you sure you want to end this session?')) {
-      clearSession();
-      location.reload();
-    }
-  });
-}
-
-function setBrushSize(size) {
-  const sBtn = document.getElementById('size-s-btn');
-  const mBtn = document.getElementById('size-m-btn');
-  const lBtn = document.getElementById('size-l-btn');
-
-  // Basic styling reset
-  [sBtn, mBtn, lBtn].forEach(btn => {
-    if (btn) {
-      btn.classList.remove('bg-amber-600', 'text-white');
-      btn.classList.add('bg-gray-700', 'text-gray-300');
-    }
-  });
-
-  // Set active style and size
-  let activeBtn;
-  if (size === 'S') {
-    brushSize = 25;
-    activeBtn = sBtn;
-  } else if (size === 'M') {
-    brushSize = 50;
-    activeBtn = mBtn;
-  } else {
-    brushSize = 100;
-    activeBtn = lBtn;
-  }
-
-  if (activeBtn) {
-    activeBtn.classList.remove('bg-gray-700', 'text-gray-300');
-    activeBtn.classList.add('bg-amber-600', 'text-white');
-  }
-}
-
-// Map Canvas Setup
-function initMapCanvas() {
-  mapCanvas = document.getElementById('map-canvas');
-  figureCanvas = document.getElementById('figure-canvas');
-  fogCanvas = document.getElementById('fog-canvas');
-  previewCanvas = document.getElementById('preview-canvas');
-
-  if (!mapCanvas || !fogCanvas) return;
-
-  mapCtx = mapCanvas.getContext('2d', { alpha: false });
-  fogCtx = fogCanvas.getContext('2d');
-  if (figureCanvas) {
-    figureCtx = figureCanvas.getContext('2d');
-  }
-  if (previewCanvas) {
-    previewCtx = previewCanvas.getContext('2d');
-  }
-
-  // Touch/mouse events for drawing and figure interaction
-  // All events go through fog canvas since it's the top layer
-  fogCanvas.addEventListener('pointerdown', startDrawing);
-  fogCanvas.addEventListener('pointermove', draw);
-  fogCanvas.addEventListener('pointerup', stopDrawing);
-  fogCanvas.addEventListener('pointerleave', stopDrawing);
-
-  // Prevent scrolling while drawing (but allow pinch)
-  fogCanvas.style.touchAction = 'none';
-
-  // Multi-touch gesture state
-  let initialPinchDistance = null;
-  let initialPinchZoom = null;
-  let initialPinchAngle = null;
-  let initialPinchRotation = null;
-  let initialPinchCenter = null;
-  let initialViewportX = null;
-  let initialViewportY = null;
-  let pinchStarted = false;
-  let pinchStabilizeCount = 0;
-
-  // Smoothing for pinch
-  let pinchHistory = [];
-  const PINCH_HISTORY_SIZE = 5;
-
-  // For smooth rendering with requestAnimationFrame
-  let pinchAnimationFrame = null;
-  let pendingPinchUpdate = null;
-
-  // Handle pinch-to-zoom and two-finger rotate (only in zoom mode)
-  fogCanvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      // Only allow pinch in zoom mode
-      if (currentMode !== MODE.ZOOM) {
-        return;
-      }
-      e.preventDefault();
-      pinchStarted = false;
-      pinchStabilizeCount = 0;
-      initialPinchDistance = null;
-      pendingPinchUpdate = null;
-      pinchHistory = [];
-    }
-  }, { passive: false });
-
-  // Render pinch updates with requestAnimationFrame for smooth animation
-  function processPinchUpdate() {
-    if (!pendingPinchUpdate) {
-      pinchAnimationFrame = null;
-      return;
-    }
-
-    const { newScale, newX, newY, newRotation } = pendingPinchUpdate;
-
-    // Apply viewport changes
-    viewport.scale = newScale;
-    viewport.x = newX;
-    viewport.y = newY;
-    if (newRotation !== null) {
-      viewport.rotation = newRotation;
-    }
-
-    updateZoomDisplay();
-    renderAll();
-
-    pendingPinchUpdate = null;
-    pinchAnimationFrame = null;
-  }
-
-  fogCanvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2) {
-      // Only allow pinch in zoom mode
-      if (currentMode !== MODE.ZOOM) {
-        return;
-      }
-      e.preventDefault();
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-
-      // Calculate current values
-      const currentCenterX = (touch1.clientX + touch2.clientX) / 2;
-      const currentCenterY = (touch1.clientY + touch2.clientY) / 2;
-      const currentDistance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      );
-
-      // Stabilization period: wait several events before capturing baseline
-      // This allows finger positions to settle when placed quickly
-      // Use more stabilization when fingers are far apart (less stable)
-      if (initialPinchDistance === null) {
-        pinchStabilizeCount++;
-        // Adaptive stabilization: far-apart fingers need more settling time
-        const requiredStabilization = currentDistance > 200 ? 8 : 6;
-        if (pinchStabilizeCount < requiredStabilization) {
-          return; // Still stabilizing
-        }
-        // Capture baseline after stabilization
-        initialPinchDistance = currentDistance;
-        initialPinchZoom = viewport.scale;
-        initialPinchAngle = Math.atan2(
-          touch2.clientY - touch1.clientY,
-          touch2.clientX - touch1.clientX
-        );
-        initialPinchRotation = viewport.rotation;
-        initialPinchCenter = { x: currentCenterX, y: currentCenterY };
-        initialViewportX = viewport.x;
-        initialViewportY = viewport.y;
-        initialViewportX = viewport.x;
-        initialViewportY = viewport.y;
-        // Pre-fill history with current values so average starts identical to initial
-        // This heavily damps the first few frames of movement to prevent jumps
-        const startState = {
-          distance: currentDistance,
-          centerX: currentCenterX,
-          centerY: currentCenterY
-        };
-        pinchHistory = Array(PINCH_HISTORY_SIZE).fill(startState);
-        return;
-      }
-
-      // Add to history buffer for smoothing
-      pinchHistory.push({
-        distance: currentDistance,
-        centerX: currentCenterX,
-        centerY: currentCenterY
-      });
-      if (pinchHistory.length > PINCH_HISTORY_SIZE) {
-        pinchHistory.shift();
-      }
-
-      // Calculate averaged values
-      const avgDistance = pinchHistory.reduce((sum, i) => sum + i.distance, 0) / pinchHistory.length;
-      const avgCenterX = pinchHistory.reduce((sum, i) => sum + i.centerX, 0) / pinchHistory.length;
-      const avgCenterY = pinchHistory.reduce((sum, i) => sum + i.centerY, 0) / pinchHistory.length;
-
-      const zoomRatio = avgDistance / initialPinchDistance;
-
-      // Deadzone: require at least 10% change before starting pinch
-      if (!pinchStarted) {
-        if (Math.abs(zoomRatio - 1) < 0.10) {
-          return; // Not enough movement yet
-        }
-        // Past deadzone - reset initial values to current for smooth start
-        initialPinchDistance = currentDistance;
-        initialPinchCenter = { x: currentCenterX, y: currentCenterY };
-        initialViewportX = viewport.x;
-        initialViewportY = viewport.y;
-        initialPinchZoom = viewport.scale;
-        pinchStarted = true;
-        return;
-      }
-
-      const newZoomRatio = avgDistance / initialPinchDistance;
-      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, initialPinchZoom * newZoomRatio));
-
-      // Get the world point under the initial pinch center
-      const rect = mapCanvas.getBoundingClientRect();
-      const scaleX = mapCanvas.width / rect.width;
-      const scaleY = mapCanvas.height / rect.height;
-
-      // Convert initial pinch center to internal canvas coords
-      const initialInternalX = (initialPinchCenter.x - rect.left) * scaleX;
-      const initialInternalY = (initialPinchCenter.y - rect.top) * scaleY;
-
-      // The world point that was under the initial pinch center
-      const worldX = (initialInternalX - initialViewportX) / initialPinchZoom;
-      const worldY = (initialInternalY - initialViewportY) / initialPinchZoom;
-
-      // Convert current pinch center to internal canvas coords
-      const currentInternalX = (avgCenterX - rect.left) * scaleX;
-      const currentInternalY = (avgCenterY - rect.top) * scaleY;
-
-      // Calculate new viewport position
-      const newX = currentInternalX - worldX * newScale;
-      const newY = currentInternalY - worldY * newScale;
-
-      // Calculate angle for rotation (only snap at 90 degree increments)
-      let newRotation = null;
-      const currentAngle = Math.atan2(
-        touch2.clientY - touch1.clientY,
-        touch2.clientX - touch1.clientX
-      );
-      const angleDelta = (currentAngle - initialPinchAngle) * 180 / Math.PI;
-      const snappedAngle = Math.round(angleDelta / 90) * 90;
-      if (Math.abs(snappedAngle) >= 90) {
-        newRotation = ((initialPinchRotation + snappedAngle) % 360 + 360) % 360;
-        // Reset references after rotation snap
-        initialPinchAngle = currentAngle;
-        initialPinchRotation = newRotation;
-      }
-
-      // Queue update for next animation frame (don't render directly in touch event)
-      pendingPinchUpdate = { newScale, newX, newY, newRotation };
-
-      if (!pinchAnimationFrame) {
-        pinchAnimationFrame = requestAnimationFrame(processPinchUpdate);
-      }
-    }
-  }, { passive: false });
-
-  fogCanvas.addEventListener('touchend', (e) => {
-    if (e.touches.length < 2) {
-      initialPinchDistance = null;
-      initialPinchZoom = null;
-      initialPinchAngle = null;
-      initialPinchRotation = null;
-      initialPinchCenter = null;
-      initialViewportX = null;
-      initialViewportY = null;
-      pinchStarted = false;
-      pinchStabilizeCount = 0;
-      pendingPinchUpdate = null;
-      if (pinchAnimationFrame) {
-        cancelAnimationFrame(pinchAnimationFrame);
-        pinchAnimationFrame = null;
-      }
-    }
-  });
-
-  // Mouse wheel zoom support (zoom to cursor)
-  const mapViewport = document.getElementById('map-viewport');
-  mapViewport?.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    zoomAtPoint(e.clientX, e.clientY, scaleFactor);
-  }, { passive: false });
-
-  // Figure palette drag handlers
-  document.querySelectorAll('.figure-btn').forEach(btn => {
-    btn.addEventListener('pointerdown', (e) => {
-      const type = btn.dataset.type;
-      const number = btn.dataset.number ? parseInt(btn.dataset.number) : undefined;
-      startFigureDrag(type, number);
-    });
-  });
-
-  // Clear figures button
-  document.getElementById('clear-figures-btn')?.addEventListener('click', clearAllFigures);
-
-  // Preview confirm/cancel buttons
-  document.getElementById('confirm-preview-btn')?.addEventListener('click', confirmPreview);
-  document.getElementById('cancel-preview-btn')?.addEventListener('click', cancelPreview);
-}
-
-function startDrawing(e) {
-  if (!mapImage) return;
-
-  const pos = screenToCanvas(e.clientX, e.clientY);
-
-  // ZOOM MODE: Only pan, no fog or figure interaction
-  if (currentMode === MODE.ZOOM) {
-    isPanning = true;
-    lastPanX = e.clientX;
-    lastPanY = e.clientY;
-    updateCursor();
-    return;
-  }
-
-  // DRAW MODE: Check if clicking on a figure first
-  const clickedFigure = findFigureAtPosition(pos);
-  if (clickedFigure) {
-    // Record start position for click vs drag detection
-    figurePointerStart = {
-      x: pos.x,
-      y: pos.y,
-      figureId: clickedFigure.id,
-      figure: clickedFigure
-    };
-    return; // Don't start fog drawing
-  }
-
-  // If dragging from palette, don't start fog drawing
-  if (isDraggingFigure) {
-    return;
-  }
-
-  // Start fog drawing
-  isDrawing = true;
-  draw(e);
-}
-
-function draw(e) {
-  if (!mapImage) return;
-
-  // Handle panning (instant rendering for maximum speed)
-  if (isPanning) {
-    // Convert screen pixel delta to internal canvas pixel delta
-    const rect = mapCanvas.getBoundingClientRect();
-    const scaleX = mapCanvas.width / rect.width;
-    const scaleY = mapCanvas.height / rect.height;
-
-    const dx = (e.clientX - lastPanX) * scaleX;
-    const dy = (e.clientY - lastPanY) * scaleY;
-
-    viewport.x += dx;
-    viewport.y += dy;
-    lastPanX = e.clientX;
-    lastPanY = e.clientY;
-    renderAll(); // Immediate render - browser handles throttling
-    return;
-  }
-
-  const pos = screenToCanvas(e.clientX, e.clientY);
-
-  // Handle figure being dragged from palette
-  if (isDraggingFigure && previewFigure) {
-    previewFigure.position = pos;
-    renderPreviewFigure();
-    hasPreview = true;
-    showPreviewActions();
-    return;
-  }
-
-  // Handle click vs drag detection for figure on map
-  if (figurePointerStart && !isDraggingFigure) {
-    const dist = Math.sqrt(
-      Math.pow(pos.x - figurePointerStart.x, 2) +
-      Math.pow(pos.y - figurePointerStart.y, 2)
-    );
-
-    if (dist > DRAG_THRESHOLD) {
-      // Start dragging the figure
-      isDraggingFigure = true;
-      previewFigure = { ...figurePointerStart.figure };
-      draggedFigureId = figurePointerStart.figureId;
-      // Remove from confirmed list
-      figures = figures.filter(f => f.id !== figurePointerStart.figureId);
-      renderFigures();
-
-      // Update preview position
-      previewFigure.position = pos;
-      renderPreviewFigure();
-      hasPreview = true;
-      showPreviewActions();
-    }
-    return;
-  }
-
-  // Handle fog drawing
-  if (!isDrawing) return;
-
-  // Calculate brush size in canvas coordinates
-  const brushRadius = brushSize / viewport.scale;
-
-  if (isRevealing) {
-    // Draw to preview data canvas (untransformed - same coordinate space as fog data)
-    previewDataCtx.fillStyle = '#00ff66';
-    previewDataCtx.beginPath();
-    previewDataCtx.arc(pos.x, pos.y, brushRadius, 0, Math.PI * 2);
-    previewDataCtx.fill();
-    // Update display with transform
-    renderPreviewLayer();
-    hasPreview = true;
-    showPreviewActions();
-  } else {
-    // Hide mode: draw directly to fog data (instant)
-    fogDataCtx.globalCompositeOperation = 'source-over';
-    fogDataCtx.fillStyle = '#000000';
-    fogDataCtx.beginPath();
-    fogDataCtx.arc(pos.x, pos.y, brushRadius, 0, Math.PI * 2);
-    fogDataCtx.fill();
-    renderAll();
-  }
-}
-
-function stopDrawing(e) {
-  // Handle pan end
-  if (isPanning) {
-    isPanning = false;
-    updateCursor();
-    return;
-  }
-
-  // Handle figure click (no drag) - show delete prompt
-  if (figurePointerStart && !isDraggingFigure) {
-    const figure = figurePointerStart.figure;
-    const label = figure.type === 'poi' ? 'POI' : `${figure.type} ${figure.number}`;
-    figurePointerStart = null;
-
-    if (confirm(`Delete ${label}?`)) {
-      figures = figures.filter(f => f.id !== figure.id);
-      renderFigures();
-      sendFiguresUpdate();
-    }
-    return;
-  }
-
-  // Handle figure drag completion - place at new position
-  if (isDraggingFigure && previewFigure) {
-    // Get final position
-    if (e) {
-      const pos = screenToCanvas(e.clientX, e.clientY);
-      previewFigure.position = pos;
-    }
-
-    // Add to figures
-    figures.push(previewFigure);
-    renderFigures();
-    sendFiguresUpdate();
-
-    // Clear preview
-    previewFigure = null;
-    draggedFigureId = null;
-    isDraggingFigure = false;
-    figurePointerStart = null;
-    if (previewCtx) {
-      previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    }
-    hasPreview = false;
-    hidePreviewActions();
-    return;
-  }
-
-  // Handle fog drawing stop
-  if (isDrawing) {
-    isDrawing = false;
-    // Only send fog update immediately for hide mode
-    if (!isRevealing) {
-      sendFogUpdate();
-    }
-  }
-
-  // Clear any stale state
-  figurePointerStart = null;
-}
-
-function showPreviewActions() {
-  document.getElementById('preview-actions')?.classList.remove('hidden');
-}
-
-function hidePreviewActions() {
-  document.getElementById('preview-actions')?.classList.add('hidden');
-}
-
-function confirmPreview() {
-  if (!hasPreview || !previewDataCanvas || !fogDataCanvas) return;
-
-  // Apply fog preview to fog data canvas (cut out the revealed areas)
-  // We need to use the preview data as a mask to remove from fog
-  fogDataCtx.globalCompositeOperation = 'destination-out';
-  fogDataCtx.drawImage(previewDataCanvas, 0, 0);
-  fogDataCtx.globalCompositeOperation = 'source-over';
-
-  // Clear preview data and display
-  previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-  if (previewCtx) {
-    previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-  }
-  hasPreview = false;
-  hidePreviewActions();
-
-  // Update display and sync to table
-  renderAll();
-  sendFogUpdate();
-}
-
-function cancelPreview() {
-  // Handle figure preview cancellation (restore if was moving existing)
-  if (previewFigure && draggedFigureId) {
-    // Was moving existing figure, restore it to original position
-    figures.push(previewFigure);
-    renderFigures();
-  }
-
-  // Clear all preview state
-  previewFigure = null;
-  draggedFigureId = null;
-  isDraggingFigure = false;
-  figurePointerStart = null;
-
-  // Clear the preview data and display canvases
-  if (previewDataCtx && previewDataCanvas) {
-    previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-  }
-  if (previewCtx && previewCanvas) {
-    previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-  }
-  hasPreview = false;
-  hidePreviewActions();
-}
-
-// Map handling
-function handleMapUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  // Reset zoom/rotation when loading new map
-  resetViewport();
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const img = new Image();
-    img.onload = () => {
-      mapImage = img;
-      showMapCanvas(); // Show first so container has dimensions
-      setupMapCanvases(img);
-      clearFog(); // Start with everything hidden
-      sendMapState();
-    };
-    img.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function loadMapFromData(imageData, fogMaskData) {
-  const img = new Image();
-  img.onload = () => {
-    mapImage = img;
-    showMapCanvas(); // Show first so container has dimensions
-    setupMapCanvases(img);
-
-    if (fogMaskData) {
-      const fogImg = new Image();
-      fogImg.onload = () => {
-        // Draw fog mask to the offscreen fog data canvas
-        fogDataCtx.drawImage(fogImg, 0, 0);
-        renderAll();
-      };
-      fogImg.src = fogMaskData;
-    } else {
-      clearFog();
-    }
-  };
-  img.src = imageData;
-}
+// === IMPORTS ===
+import {
+  setWs, setSessionId, setGmToken, setJoinCode,
+  setMapImage, setFigures, setIsDrawing, setIsPanning, setLastPanX, setLastPanY,
+  setHasPreview, setSelectedFigureType, setSelectedPlacedFigure, setLastFigureTapTime,
+  ws, sessionId, gmToken, joinCode, mapImage, figures, elements, initElements,
+  MODE, currentMode, viewport, MIN_ZOOM, MAX_ZOOM, brushSize, isRevealing, isDrawing,
+  isPanning, lastPanX, lastPanY, hasPreview, selectedFigureType, selectedPlacedFigure,
+  lastFigureTapTime, DOUBLE_TAP_THRESHOLD, presetMaps,
+  fogCanvas, fogDataCanvas, fogDataCtx, previewDataCanvas, previewDataCtx, mapCanvas
+} from './state.js';
+
+import {
+  screenToCanvas, applyViewportTransform, zoomAtPoint, updateZoomDisplay, updateCursor, resetViewport
+} from './viewport.js';
+
+import {
+  generateFigureId, renderFigures, renderFiguresLayer, findFigureAtPosition,
+  clearPaletteSelection, updateFigurePalette, sendFiguresUpdate
+} from './figures.js';
+
+import {
+  clearFog, revealAll, confirmPreview, cancelPreview, showPreviewActions, sendFogUpdate, sendMapState,
+  setRenderAllForFog
+} from './fog.js';
+
+import {
+  initMapCanvas, setupMapCanvases, showMapCanvas, renderAll, renderFogLayer, renderPreviewLayer
+} from './canvas.js';
+
+import {
+  initEventListeners, setMode, updateConnectionStatus, showJoinCode, showControlPanel
+} from './ui.js';
+
+// === WEBSOCKET CLIENT ===
+// WSClient is loaded via separate script tag (non-module)
+const WSClient = window.WSClient;
 
 // === PRESET MAPS ===
-
-// Track which maps are available
 const availableMaps = new Set();
 
-// Initialize preset maps UI
 function initPresetMaps() {
-  // Check which maps are available first
   let checkCount = 0;
   presetMaps.forEach(map => {
     const testImg = new Image();
@@ -1271,7 +68,6 @@ function initPresetMaps() {
     testImg.src = map.path;
   });
 
-  // Set up category filter listeners
   document.getElementById('preset-category-filter')?.addEventListener('change', (e) => {
     renderPresetMapsGrid('preset-maps-grid', e.target.value);
   });
@@ -1280,19 +76,13 @@ function initPresetMaps() {
   });
 }
 
-// Render preset maps grid with optional category filter
 function renderPresetMapsGrid(gridId, category) {
   const grid = document.getElementById(gridId);
   if (!grid) return;
 
   grid.innerHTML = '';
   const isCompact = gridId.includes('loaded');
-
-  const filteredMaps = category === 'all'
-    ? presetMaps
-    : presetMaps.filter(m => m.category === category);
-
-  // Sort alphabetically
+  const filteredMaps = category === 'all' ? presetMaps : presetMaps.filter(m => m.category === category);
   filteredMaps.sort((a, b) => a.name.localeCompare(b.name));
 
   filteredMaps.forEach(map => {
@@ -1300,20 +90,11 @@ function renderPresetMapsGrid(gridId, category) {
     const btn = document.createElement('button');
 
     if (isCompact) {
-      btn.className = `preset-map-btn text-xs p-1 rounded transition-colors ${isAvailable
-        ? 'bg-gray-600 hover:bg-gray-500'
-        : 'bg-gray-800 opacity-50 cursor-not-allowed'
-        }`;
+      btn.className = `preset-map-btn text-xs p-1 rounded transition-colors ${isAvailable ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-800 opacity-50 cursor-not-allowed'}`;
       btn.textContent = map.name;
     } else {
-      btn.className = `preset-map-btn p-2 rounded-lg text-sm flex flex-col items-center gap-1 transition-colors ${isAvailable
-        ? 'bg-gray-700 hover:bg-gray-600'
-        : 'bg-gray-800 opacity-50 cursor-not-allowed'
-        }`;
-      btn.innerHTML = `
-        <span class="font-bold text-xs">${map.name}</span>
-        <span class="text-xs text-gray-400">${map.category}</span>
-      `;
+      btn.className = `preset-map-btn p-2 rounded-lg text-sm flex flex-col items-center gap-1 transition-colors ${isAvailable ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-800 opacity-50 cursor-not-allowed'}`;
+      btn.innerHTML = `<span class="font-bold text-xs">${map.name}</span><span class="text-xs text-gray-400">${map.category}</span>`;
     }
 
     if (isAvailable) {
@@ -1321,412 +102,495 @@ function renderPresetMapsGrid(gridId, category) {
     } else {
       btn.title = 'Map not downloaded. Run: npm run download-maps';
     }
-
     grid.appendChild(btn);
   });
 }
 
-// Update empty message visibility
 function updateEmptyMessage() {
   const emptyMsg = document.getElementById('preset-maps-empty');
   if (emptyMsg) {
-    if (availableMaps.size === 0) {
-      emptyMsg.classList.remove('hidden');
-    } else {
-      emptyMsg.classList.add('hidden');
-    }
+    emptyMsg.classList.toggle('hidden', availableMaps.size > 0);
   }
 }
 
-// Load a preset map
 function loadPresetMap(map) {
-  // Reset zoom/rotation when loading new map
   resetViewport();
-
   const img = new Image();
   img.onload = () => {
-    mapImage = img;
+    setMapImage(img);
     showMapCanvas();
     setupMapCanvases(img);
     clearFog();
-    sendMapState();
+    sendMapState(mapImage);
   };
-  img.onerror = () => {
-    alert(`Failed to load map: ${map.name}\nRun 'npm run download-maps' to download preset maps.`);
-  };
+  img.onerror = () => alert(`Failed to load map: ${map.name}\nRun 'npm run download-maps' to download preset maps.`);
   img.src = map.path;
 }
 
-function setupMapCanvases(img) {
-  const container = document.getElementById('map-canvas-container');
-  const mapViewportEl = document.getElementById('map-viewport');
+// === MAP HANDLING ===
+function handleMapUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
 
-  // Get parent width - use full width
-  const parentWidth = mapViewportEl.parentElement.clientWidth;
-
-  // Calculate max height: header (~40px) + footer tab bar (56px) + margins = 110px
-  const maxHeight = window.innerHeight - 110;
-
-  // Calculate dimensions that fit within constraints
-  const aspectRatio = img.height / img.width;
-  let displayWidth = parentWidth;
-  let displayHeight = parentWidth * aspectRatio;
-
-  // If too tall, constrain by height to avoid footer overlap
-  if (displayHeight > maxHeight) {
-    displayHeight = maxHeight;
-    displayWidth = displayHeight / aspectRatio;
-  }
-
-  // Update container and viewport size
-  container.style.width = `${displayWidth}px`;
-  container.style.height = `${displayHeight}px`;
-  mapViewportEl.style.width = `${displayWidth}px`;
-  mapViewportEl.style.height = `${displayHeight}px`;
-
-  // === PERFORMANCE OPTIMIZATION ===
-  // Limit canvas size to prevent mobile lag with large images
-  // Max 2048px on any dimension for good mobile performance
-  const MAX_CANVAS_SIZE = 2048;
-  let canvasWidth = img.width;
-  let canvasHeight = img.height;
-
-  if (canvasWidth > MAX_CANVAS_SIZE || canvasHeight > MAX_CANVAS_SIZE) {
-    const scale = Math.min(MAX_CANVAS_SIZE / canvasWidth, MAX_CANVAS_SIZE / canvasHeight);
-    canvasWidth = Math.round(canvasWidth * scale);
-    canvasHeight = Math.round(canvasHeight * scale);
-
-    // Create downscaled version of the image for better performance
-    const scaledCanvas = document.createElement('canvas');
-    scaledCanvas.width = canvasWidth;
-    scaledCanvas.height = canvasHeight;
-    const scaledCtx = scaledCanvas.getContext('2d');
-    scaledCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
-
-    // Replace mapImage with the downscaled version
-    const scaledImg = new Image();
-    scaledImg.src = scaledCanvas.toDataURL('image/jpeg', 0.9);
-    mapImage = scaledImg;
-
-    console.log(`Image downscaled from ${img.width}x${img.height} to ${canvasWidth}x${canvasHeight} for performance`);
-  }
-
-  // Set canvas dimensions (now potentially downscaled)
-  mapCanvas.width = canvasWidth;
-  mapCanvas.height = canvasHeight;
-  if (figureCanvas) {
-    figureCanvas.width = canvasWidth;
-    figureCanvas.height = canvasHeight;
-  }
-  fogCanvas.width = canvasWidth;
-  fogCanvas.height = canvasHeight;
-  if (previewCanvas) {
-    previewCanvas.width = canvasWidth;
-    previewCanvas.height = canvasHeight;
-  }
-
-  // Create/resize offscreen fog data canvas
-  fogDataCanvas = document.createElement('canvas');
-  fogDataCanvas.width = canvasWidth;
-  fogDataCanvas.height = canvasHeight;
-  fogDataCtx = fogDataCanvas.getContext('2d', { willReadFrequently: true });
-
-  // Create/resize offscreen preview data canvas
-  previewDataCanvas = document.createElement('canvas');
-  previewDataCanvas.width = canvasWidth;
-  previewDataCanvas.height = canvasHeight;
-  previewDataCtx = previewDataCanvas.getContext('2d', { willReadFrequently: true });
-
-  // Clear any existing preview
-  if (previewDataCtx) {
-    previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-  }
-  hasPreview = false;
-  hidePreviewActions();
-
-  // Make fog visible but semi-transparent for GM
-  fogCanvas.style.opacity = '0.4';
-
-  // Reset viewport to default (this also renders all layers)
   resetViewport();
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      setMapImage(img);
+      showMapCanvas();
+      setupMapCanvases(img);
+      clearFog();
+      sendMapState(mapImage);
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
-function showMapCanvas() {
-  document.getElementById('map-upload-section').classList.add('hidden');
-  document.getElementById('map-canvas-section').classList.remove('hidden');
-  // Show mode toggle and controls button (panel stays collapsed)
-  document.getElementById('mode-toggle')?.classList.remove('hidden');
-  document.getElementById('controls-toggle-btn')?.classList.remove('hidden');
-  document.getElementById('controls-panel')?.classList.remove('hidden');
-  // Set cursor for default zoom mode
-  updateCursor();
-}
+function loadMapFromData(imageData, fogMaskData) {
+  const img = new Image();
+  img.onload = () => {
+    setMapImage(img);
+    showMapCanvas();
+    setupMapCanvases(img);
 
-function clearFog() {
-  if (!fogDataCanvas) return;
-
-  // Clear any preview first
-  if (previewDataCtx && previewDataCanvas) {
-    previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-  }
-  if (previewCtx && previewCanvas) {
-    previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-  }
-  hasPreview = false;
-  hidePreviewActions();
-
-  // Fill fog data with black (all hidden)
-  fogDataCtx.globalCompositeOperation = 'source-over';
-  fogDataCtx.fillStyle = '#000000';
-  fogDataCtx.fillRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
-
-  renderAll();
-  sendFogUpdate();
-}
-
-function revealAll() {
-  if (!fogDataCanvas) return;
-
-  // Clear any preview first
-  if (previewDataCtx && previewDataCanvas) {
-    previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-  }
-  if (previewCtx && previewCanvas) {
-    previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-  }
-  hasPreview = false;
-  hidePreviewActions();
-
-  // Clear the fog data canvas (all revealed)
-  fogDataCtx.clearRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
-
-  renderAll();
-  sendFogUpdate();
-}
-
-// Send map state to server/table
-function sendMapState() {
-  if (!mapImage || !fogDataCanvas) return;
-
-  // Create a temp canvas to draw the untransformed map
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = mapImage.width;
-  tempCanvas.height = mapImage.height;
-  const tempCtx = tempCanvas.getContext('2d');
-  tempCtx.drawImage(mapImage, 0, 0);
-
-  const mapData = tempCanvas.toDataURL('image/jpeg', 0.8);
-  const fogData = fogDataCanvas.toDataURL('image/png');
-
-  ws.send('map:state', {
-    mapImage: mapData,
-    fogMask: fogData,
-  });
-}
-
-function sendFogUpdate() {
-  if (!fogDataCanvas) return;
-
-  const fogData = fogDataCanvas.toDataURL('image/png');
-  ws.send('map:fogUpdate', {
-    fogMask: fogData,
-  });
-}
-
-// === FIGURE FUNCTIONS ===
-
-// Generate unique ID for figures
-function generateFigureId() {
-  return 'fig_' + Math.random().toString(36).substr(2, 9) + Date.now();
-}
-
-// Render all confirmed figures (with viewport transform)
-function renderFigures() {
-  renderFiguresLayer();
-  updateFigurePalette();
-}
-
-// Update figure palette to show which figures are already placed
-function updateFigurePalette() {
-  document.querySelectorAll('.figure-btn').forEach(btn => {
-    const type = btn.dataset.type;
-    const number = btn.dataset.number ? parseInt(btn.dataset.number) : undefined;
-
-    if (type !== 'poi' && number) {
-      const isPlaced = figures.some(f => f.type === type && f.number === number);
-      btn.classList.toggle('opacity-50', isPlaced);
-      btn.classList.toggle('cursor-not-allowed', isPlaced);
+    if (fogMaskData) {
+      const fogImg = new Image();
+      fogImg.onload = () => {
+        fogDataCtx.drawImage(fogImg, 0, 0);
+        renderAll();
+      };
+      fogImg.src = fogMaskData;
+    } else {
+      clearFog();
     }
-  });
+  };
+  img.src = imageData;
 }
 
-// Render preview figure on preview canvas (with viewport transform)
-function renderPreviewFigure() {
-  if (!previewCtx || !previewFigure) return;
-  previewCtx.save();
-  previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-  applyViewportTransform(previewCtx);
-  drawFigure(previewCtx, previewFigure, 0.6);
-  previewCtx.restore();
-}
+// === DRAWING HANDLERS ===
+let dirtyRect = null;
+let fogUpdateTimeout = null;
 
-// Draw a single figure
-function drawFigure(ctx, figure, opacity) {
-  ctx.save();
-  ctx.globalAlpha = opacity;
+function updateDirtyRect(x, y, radius) {
+  const minX = Math.floor(x - radius);
+  const minY = Math.floor(y - radius);
+  const maxX = Math.ceil(x + radius);
+  const maxY = Math.ceil(y + radius);
 
-  const radius = 20;
-  const { x, y } = figure.position;
-
-  // Draw colored circle
-  ctx.fillStyle = figure.type === 'enemy' ? '#ef4444' :
-    figure.type === 'player' ? '#22c55e' : '#f59e0b';
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Draw white border
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Draw number or POI symbol (use star instead of emoji for reliability)
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${radius * 1.2}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  if (figure.type === 'poi') {
-    ctx.fillText('★', x, y);
+  if (!dirtyRect) {
+    dirtyRect = { minX, minY, maxX, maxY };
   } else {
-    ctx.fillText(figure.number, x, y);
+    dirtyRect.minX = Math.min(dirtyRect.minX, minX);
+    dirtyRect.minY = Math.min(dirtyRect.minY, minY);
+    dirtyRect.maxX = Math.max(dirtyRect.maxX, maxX);
+    dirtyRect.maxY = Math.max(dirtyRect.maxY, maxY);
   }
-
-  ctx.restore();
 }
 
-// Start dragging a figure from palette
-function startFigureDrag(type, number) {
-  // Check if this figure type+number already exists (skip POI - unlimited)
-  if (type !== 'poi' && number) {
-    const existing = figures.find(f => f.type === type && f.number === number);
-    if (existing) {
-      // Figure already placed - don't allow duplicate
+function startDrawing(e) {
+  if (!mapImage) return;
+
+  const pos = screenToCanvas(e.clientX, e.clientY);
+
+  if (currentMode === MODE.ZOOM) {
+    // ... (existing zoom logic same as before) ...
+    const clickedFigure = findFigureAtPosition(pos);
+    const now = Date.now();
+
+    if (clickedFigure) {
+      if (selectedPlacedFigure === clickedFigure.id && (now - lastFigureTapTime) < DOUBLE_TAP_THRESHOLD) {
+        setFigures(figures.filter(f => f.id !== clickedFigure.id));
+        setSelectedPlacedFigure(null);
+        setLastFigureTapTime(0);
+        renderFigures();
+        sendFiguresUpdate();
+        return;
+      }
+      setSelectedPlacedFigure(clickedFigure.id);
+      setSelectedFigureType(null);
+      clearPaletteSelection();
+      setLastFigureTapTime(now);
+      renderFigures();
       return;
     }
+
+    if (selectedFigureType) {
+      const newFigure = {
+        id: generateFigureId(),
+        type: selectedFigureType.type,
+        number: selectedFigureType.number,
+        position: pos,
+        createdAt: Date.now()
+      };
+      setFigures([...figures, newFigure]);
+      setSelectedFigureType(null);
+      clearPaletteSelection();
+      renderFigures();
+      sendFiguresUpdate();
+      updateFigurePalette();
+      return;
+    }
+
+    if (selectedPlacedFigure) {
+      const fig = figures.find(f => f.id === selectedPlacedFigure);
+      if (fig) {
+        fig.position = pos;
+        setSelectedPlacedFigure(null);
+        renderFigures();
+        sendFiguresUpdate();
+      }
+      return;
+    }
+
+    setIsPanning(true);
+    setLastPanX(e.clientX);
+    setLastPanY(e.clientY);
+    updateCursor();
+    return;
   }
 
-  previewFigure = {
-    id: generateFigureId(),
-    type,
-    number,
-    position: { x: 0, y: 0 },
-    createdAt: Date.now()
-  };
-  isDraggingFigure = true;
+  setIsDrawing(true);
+  dirtyRect = null; // Reset dirty rect
+  draw(e);
 }
 
+function draw(e) {
+  if (!mapImage) return;
 
-// Find figure at given position
-function findFigureAtPosition(pos) {
-  const hitRadius = 30;
-  return figures.find(fig => {
-    const dist = Math.sqrt(
-      Math.pow(fig.position.x - pos.x, 2) +
-      Math.pow(fig.position.y - pos.y, 2)
-    );
-    return dist < hitRadius;
+  if (isPanning) {
+    const rect = mapCanvas.getBoundingClientRect();
+    const scaleX = mapCanvas.width / rect.width;
+    const scaleY = mapCanvas.height / rect.height;
+    const dx = (e.clientX - lastPanX) * scaleX;
+    const dy = (e.clientY - lastPanY) * scaleY;
+
+    viewport.x += dx;
+    viewport.y += dy;
+    setLastPanX(e.clientX);
+    setLastPanY(e.clientY);
+    renderAll();
+    return;
+  }
+
+  if (!isDrawing) return;
+
+  const pos = screenToCanvas(e.clientX, e.clientY);
+  const brushRadius = brushSize / viewport.scale;
+
+  if (isRevealing) {
+    previewDataCtx.fillStyle = '#00ff66';
+    previewDataCtx.beginPath();
+    previewDataCtx.arc(pos.x, pos.y, brushRadius, 0, Math.PI * 2);
+    previewDataCtx.fill();
+    renderPreviewLayer();
+    setHasPreview(true);
+    showPreviewActions();
+  } else {
+    fogDataCtx.globalCompositeOperation = 'source-over';
+    fogDataCtx.fillStyle = '#000000';
+    fogDataCtx.beginPath();
+    fogDataCtx.arc(pos.x, pos.y, brushRadius, 0, Math.PI * 2);
+    fogDataCtx.fill();
+    renderAll();
+
+    // Track dirty rect
+    updateDirtyRect(pos.x, pos.y, brushRadius);
+  }
+}
+
+function stopDrawing(e) {
+  if (isPanning) {
+    setIsPanning(false);
+    updateCursor();
+    updateZoomDisplay();
+    return;
+  }
+
+  if (isDrawing) {
+    setIsDrawing(false);
+
+    if (!isRevealing) {
+      // Send partial update immediately
+      if (dirtyRect && fogDataCanvas) {
+        // Clamp to canvas bounds
+        const x = Math.max(0, dirtyRect.minX);
+        const y = Math.max(0, dirtyRect.minY);
+        const w = Math.min(fogDataCanvas.width - x, dirtyRect.maxX - x);
+        const h = Math.min(fogDataCanvas.height - y, dirtyRect.maxY - y);
+
+        if (w > 0 && h > 0) {
+          import('./fog.js').then(fog => fog.sendFogPartial(x, y, w, h));
+        }
+      }
+
+      // Debounce full update to server for persistence
+      if (fogUpdateTimeout) clearTimeout(fogUpdateTimeout);
+      fogUpdateTimeout = setTimeout(() => {
+        sendFogUpdate();
+      }, 2000);
+    }
+  }
+}
+
+// === CANVAS INTERACTION SETUP ===
+function setupCanvasInteraction() {
+  if (!fogCanvas) return;
+
+  fogCanvas.addEventListener('pointerdown', startDrawing);
+  fogCanvas.addEventListener('pointermove', draw);
+  fogCanvas.addEventListener('pointerup', stopDrawing);
+  fogCanvas.addEventListener('pointerleave', stopDrawing);
+  fogCanvas.style.touchAction = 'none';
+
+  // Pinch-to-zoom state
+  let initialPinchDistance = null;
+  let initialPinchZoom = null;
+  let initialPinchCenter = null;
+  let initialViewportX = null;
+  let initialViewportY = null;
+  let pinchStarted = false;
+  let pinchStabilizeCount = 0;
+  let pinchHistory = [];
+  const PINCH_HISTORY_SIZE = 5;
+  let pinchAnimationFrame = null;
+  let pendingPinchUpdate = null;
+
+  function processPinchUpdate() {
+    if (!pendingPinchUpdate) { pinchAnimationFrame = null; return; }
+    const { newScale, newX, newY } = pendingPinchUpdate;
+    viewport.scale = newScale;
+    viewport.x = newX;
+    viewport.y = newY;
+    updateZoomDisplay();
+    renderAll();
+    pendingPinchUpdate = null;
+    pinchAnimationFrame = null;
+  }
+
+  fogCanvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      setIsPanning(false);
+      if (currentMode !== MODE.ZOOM) return;
+      e.preventDefault();
+      pinchStarted = false;
+      pinchStabilizeCount = 0;
+      initialPinchDistance = null;
+      pendingPinchUpdate = null;
+      pinchHistory = [];
+    }
+  }, { passive: false });
+
+  fogCanvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      if (currentMode !== MODE.ZOOM) return;
+      e.preventDefault();
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const cx = (t1.clientX + t2.clientX) / 2;
+      const cy = (t1.clientY + t2.clientY) / 2;
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+      if (initialPinchDistance === null) {
+        pinchStabilizeCount++;
+        if (pinchStabilizeCount < (dist > 200 ? 8 : 6)) return;
+        initialPinchDistance = dist;
+        initialPinchZoom = viewport.scale;
+        initialPinchCenter = { x: cx, y: cy };
+        initialViewportX = viewport.x;
+        initialViewportY = viewport.y;
+        pinchHistory = Array(PINCH_HISTORY_SIZE).fill({ distance: dist, centerX: cx, centerY: cy });
+        return;
+      }
+
+      pinchHistory.push({ distance: dist, centerX: cx, centerY: cy });
+      if (pinchHistory.length > PINCH_HISTORY_SIZE) pinchHistory.shift();
+
+      const avgDist = pinchHistory.reduce((s, i) => s + i.distance, 0) / pinchHistory.length;
+      const zoomRatio = avgDist / initialPinchDistance;
+
+      if (!pinchStarted && Math.abs(zoomRatio - 1) < 0.10) return;
+      if (!pinchStarted) {
+        initialPinchDistance = dist;
+        initialPinchCenter = { x: cx, y: cy };
+        initialViewportX = viewport.x;
+        initialViewportY = viewport.y;
+        initialPinchZoom = viewport.scale;
+        pinchStarted = true;
+        return;
+      }
+
+      const newZoomRatio = avgDist / initialPinchDistance;
+      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, initialPinchZoom * newZoomRatio));
+      const rect = mapCanvas.getBoundingClientRect();
+      const scaleX = mapCanvas.width / rect.width;
+      const scaleY = mapCanvas.height / rect.height;
+      const initInternalX = (initialPinchCenter.x - rect.left) * scaleX;
+      const initInternalY = (initialPinchCenter.y - rect.top) * scaleY;
+      const worldX = (initInternalX - initialViewportX) / initialPinchZoom;
+      const worldY = (initInternalY - initialViewportY) / initialPinchZoom;
+      const newX = initInternalX - worldX * newScale;
+      const newY = initInternalY - worldY * newScale;
+
+      pendingPinchUpdate = { newScale, newX, newY };
+      if (!pinchAnimationFrame) pinchAnimationFrame = requestAnimationFrame(processPinchUpdate);
+    }
+  }, { passive: false });
+
+  fogCanvas.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) {
+      initialPinchDistance = null;
+      initialPinchZoom = null;
+      initialPinchCenter = null;
+      initialViewportX = null;
+      initialViewportY = null;
+      pinchStarted = false;
+      pinchStabilizeCount = 0;
+      pendingPinchUpdate = null;
+      if (pinchAnimationFrame) { cancelAnimationFrame(pinchAnimationFrame); pinchAnimationFrame = null; }
+    }
   });
+
+  // Mouse wheel zoom
+  document.getElementById('map-viewport')?.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoomAtPoint(e.clientX, e.clientY, e.deltaY > 0 ? 0.9 : 1.1);
+  }, { passive: false });
 }
 
-// Clear all figures
-function clearAllFigures() {
-  if (!confirm('Clear all figures?')) return;
+// === WEBSOCKET SETUP ===
+function initWebSocket() {
+  const wsClient = new WSClient();
+  setWs(wsClient);
 
-  figures = [];
-  previewFigure = null;
-  draggedFigureId = null;
-  figurePointerStart = null;
-  if (figureCtx) {
-    figureCtx.setTransform(1, 0, 0, 1, 0, 0);
-    figureCtx.clearRect(0, 0, figureCanvas.width, figureCanvas.height);
-  }
-  if (previewCtx) {
-    previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-  }
-  hasPreview = false;
-  hidePreviewActions();
-  updateFigurePalette();
-  ws.send('figures:clear');
-}
-
-// Send figures update to server
-function sendFiguresUpdate() {
-  ws.send('figures:update', { figures });
-}
-
-// UI Updates
-function updateConnectionStatus(connected) {
-  elements.statusDot.className = `w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`;
-  elements.statusText.textContent = connected ? 'Connected' : 'Disconnected';
-}
-
-function showJoinCode() {
-  elements.createSessionPanel.classList.add('hidden');
-  elements.joinCodePanel.classList.remove('hidden');
-  elements.joinCode.textContent = joinCode;
-  if (elements.settingsJoinCode) {
-    elements.settingsJoinCode.textContent = joinCode;
-  }
-
-  // Set the table display links (include join code for auto-join)
-  const baseUrl = window.location.origin;
-  const tableUrl = `${baseUrl}/table?code=${joinCode}`;
-
-  const tableLink = document.getElementById('table-link');
-  if (tableLink) {
-    tableLink.value = tableUrl;
-  }
-
-  const sessionTableLink = document.getElementById('session-table-link');
-  if (sessionTableLink) {
-    sessionTableLink.value = tableUrl;
-  }
-}
-
-function showControlPanel() {
-  elements.sessionPanel.classList.add('hidden');
-  elements.controlPanel.classList.remove('hidden');
-}
-
-function showTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.toggle('text-amber-400', btn.dataset.tab === tabName);
-    btn.classList.toggle('text-gray-400', btn.dataset.tab !== tabName);
+  wsClient.on('connected', () => {
+    updateConnectionStatus(true);
+    const saved = getSavedSession();
+    if (saved) wsClient.reconnectSession(saved.sessionId, saved.gmToken);
   });
 
-  document.querySelectorAll('.tab-panel').forEach(panel => {
-    panel.classList.add('hidden');
+  wsClient.on('disconnected', () => updateConnectionStatus(false));
+
+  wsClient.on('session:created', (data) => {
+    setSessionId(data.sessionId);
+    setGmToken(data.gmToken);
+    setJoinCode(data.joinCode);
+    saveSession();
+    showJoinCode(data.joinCode);
+    showControlPanel();
   });
-  document.getElementById(`tab-${tabName}`)?.classList.remove('hidden');
+
+  wsClient.on('session:reconnected', (data) => {
+    setSessionId(data.sessionId);
+    setJoinCode(data.joinCode);
+    showJoinCode(data.joinCode);
+    showControlPanel();
+  });
+
+  wsClient.on('session:state', (data) => {
+    if (data.mapImage) loadMapFromData(data.mapImage, data.fogMask);
+    if (data.figures?.length > 0) {
+      setFigures(data.figures);
+      renderFigures();
+    }
+  });
+
+  wsClient.on('table:connected', () => {
+    if (elements.tableConnected) {
+      elements.tableConnected.textContent = 'Connected';
+      elements.tableConnected.className = 'ml-2 text-green-400';
+    }
+    if (mapImage) sendMapState(mapImage);
+  });
+
+  wsClient.on('table:disconnected', () => {
+    if (elements.tableConnected) {
+      elements.tableConnected.textContent = 'Not Connected';
+      elements.tableConnected.className = 'ml-2 text-red-400';
+    }
+  });
+
+  wsClient.on('error', (data) => {
+    console.error('Server error:', data);
+    alert(`Error: ${data.message}`);
+  });
+
+  wsClient.connect();
+  return wsClient;
 }
 
-// Session Management
+// === SESSION MANAGEMENT ===
 function getSavedSession() {
   const saved = localStorage.getItem('dungeon-bridge-session');
   return saved ? JSON.parse(saved) : null;
 }
 
 function saveSession() {
-  localStorage.setItem('dungeon-bridge-session', JSON.stringify({
-    sessionId,
-    gmToken,
-  }));
+  localStorage.setItem('dungeon-bridge-session', JSON.stringify({ sessionId, gmToken }));
 }
 
 function clearSession() {
   localStorage.removeItem('dungeon-bridge-session');
 }
+
+// === WINDOW RESIZE ===
+let resizeTimeout;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    if (mapImage) {
+      const container = document.getElementById('map-canvas-container');
+      const mapViewportEl = document.getElementById('map-viewport');
+      const maxHeight = window.innerHeight - 110;
+      const aspectRatio = mapImage.height / mapImage.width;
+      const parentWidth = mapViewportEl.parentElement.clientWidth;
+      let displayWidth = parentWidth;
+      let displayHeight = parentWidth * aspectRatio;
+
+      if (displayHeight > maxHeight) {
+        displayHeight = maxHeight;
+        displayWidth = displayHeight / aspectRatio;
+      }
+
+      container.style.width = `${displayWidth}px`;
+      container.style.height = `${displayHeight}px`;
+      mapViewportEl.style.width = `${displayWidth}px`;
+      mapViewportEl.style.height = `${displayHeight}px`;
+      renderAll();
+    }
+  }, 100);
+});
+
+// === INITIALIZATION ===
+document.addEventListener('DOMContentLoaded', () => {
+  initElements();
+  const wsClient = initWebSocket();
+
+  // Register renderAll with fog module
+  setRenderAllForFog(renderAll);
+
+  initEventListeners({
+    onCreateSession: () => wsClient.createSession(),
+    onReconnect: () => {
+      const saved = getSavedSession();
+      if (saved) wsClient.reconnectSession(saved.sessionId, saved.gmToken);
+      else alert('No saved session found');
+    },
+    onEndSession: () => {
+      if (confirm('Are you sure you want to end this session?')) {
+        clearSession();
+        location.reload();
+      }
+    },
+    onMapUpload: handleMapUpload,
+    ws: wsClient
+  });
+
+  initMapCanvas();
+  setupCanvasInteraction();
+  initPresetMaps();
+
+  // Force settings panel closed
+  const settingsModal = document.getElementById('settings-modal');
+  if (settingsModal) settingsModal.classList.add('hidden');
+});

@@ -1,4 +1,4 @@
-# Dungeon & Denis
+# Dungeons & Denis
 
 Real-time companion tool for in-person D&D sessions. The Game Master controls everything from their phone while a shared TV/monitor displays the dungeon map, handouts, and puzzles to the players.
 

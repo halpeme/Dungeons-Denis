@@ -17,6 +17,7 @@ db/*.db-wal
 # Logs
 *.log
 npm-debug.log*
+logs/
 
 # IDE
 .idea/

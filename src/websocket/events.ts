@@ -73,6 +73,17 @@ export interface MapUpdateMessage extends WSMessage {
   };
 }
 
+export interface MapFogPartialMessage extends WSMessage {
+  type: 'map:fogPartial';
+  payload: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    chunk: string;
+  };
+}
+
 export interface MapMovePartyMessage extends WSMessage {
   type: 'map:moveParty';
   payload: {

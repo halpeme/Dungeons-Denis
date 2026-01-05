@@ -9,9 +9,9 @@ let currentMode = 'blank';
 
 // Map state - image-based fog
 let mapImage = null;        // Image object
-let fogMaskImage = null;    // Image object for fog mask
 let mapImageSrc = null;     // Base64 map image
-let fogMaskSrc = null;      // Base64 fog mask
+let fogDataCanvas = null;   // Offscreen canvas for fog
+let fogCtx = null;          // Context for fog canvas
 
 // Figure state
 let figures = [];
@@ -32,6 +32,7 @@ const elements = {
 document.addEventListener('DOMContentLoaded', () => {
   initWebSocket();
   initEventListeners();
+  initInteractionListeners(); // Add listeners
   resizeCanvas();
 });
 
@@ -85,14 +86,28 @@ function initWebSocket() {
       mapImageSrc = data.mapImage;
       mapImage = new Image();
       mapImage.onload = () => {
+        // Initialize fog canvas
+        if (!fogDataCanvas) {
+          fogDataCanvas = document.createElement('canvas');
+          fogCtx = fogDataCanvas.getContext('2d');
+        }
+        fogDataCanvas.width = mapImage.width;
+        fogDataCanvas.height = mapImage.height;
+
         // Load fog mask after map loads
         if (data.fogMask) {
-          fogMaskSrc = data.fogMask;
-          fogMaskImage = new Image();
-          fogMaskImage.onload = () => renderMap();
-          fogMaskImage.src = data.fogMask;
+          const fogImg = new Image();
+          fogImg.onload = () => {
+            fogCtx.clearRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
+            fogCtx.drawImage(fogImg, 0, 0);
+            resetViewport(); // Reset fit on load
+          };
+          fogImg.src = data.fogMask;
         } else {
-          renderMap();
+          // Default to full black if no mask
+          fogCtx.fillStyle = '#000000';
+          fogCtx.fillRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
+          resetViewport();
         }
       };
       mapImage.src = data.mapImage;
@@ -101,21 +116,37 @@ function initWebSocket() {
   });
 
   ws.on('map:fogUpdate', (data) => {
-    // Update just the fog mask
+    // Update the entire fog mask
     if (data.fogMask) {
-      fogMaskSrc = data.fogMask;
-      fogMaskImage = new Image();
-      fogMaskImage.onload = () => renderMap();
-      fogMaskImage.src = data.fogMask;
+      const fogImg = new Image();
+      fogImg.onload = () => {
+        if (fogCtx) {
+          fogCtx.clearRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
+          fogCtx.drawImage(fogImg, 0, 0);
+          renderMap();
+        }
+      };
+      fogImg.src = data.fogMask;
     }
+  });
+
+  ws.on('map:fogPartial', (data) => {
+    if (!fogDataCanvas || !fogCtx) return;
+
+    const chunkImg = new Image();
+    chunkImg.onload = () => {
+      fogCtx.drawImage(chunkImg, data.x, data.y);
+      renderMap();
+    };
+    chunkImg.src = data.chunk;
   });
 
   ws.on('map:clear', () => {
     // Clear map and fog
     mapImage = null;
-    fogMaskImage = null;
+    fogDataCanvas = null;
+    fogCtx = null;
     mapImageSrc = null;
-    fogMaskSrc = null;
     renderMap();
   });
 
@@ -197,12 +228,86 @@ function setDisplayMode(mode) {
   }
 }
 
+// Viewport State
+let viewport = {
+  scale: 1,
+  x: 0,
+  y: 0,
+  rotation: 0
+};
+
+// Constants
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 5;
+
+// === VIEWPORT TRANSFORM FUNCTIONS ===
+
+// Convert screen coordinates to canvas coordinates
+function screenToCanvas(clientX, clientY) {
+  const canvas = elements.mapCanvas;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  };
+}
+
+// Apply viewport transform to a canvas context
+function applyViewportTransform(ctx) {
+  ctx.translate(viewport.x, viewport.y);
+  ctx.scale(viewport.scale, viewport.scale);
+  ctx.rotate(viewport.rotation * Math.PI / 180);
+}
+
+// Zoom centered on a specific screen point
+function zoomAtPoint(clientX, clientY, scaleFactor) {
+  const pt = screenToCanvas(clientX, clientY);
+
+  // Calculate world point under cursor before zoom
+  // worldX = (screenX - viewportX) / scale
+  const worldX = (pt.x - viewport.x) / viewport.scale;
+  const worldY = (pt.y - viewport.y) / viewport.scale;
+
+  // Update scale
+  const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, viewport.scale * scaleFactor));
+
+  // Adjust viewport to keep world point under cursor
+  // newViewportX = screenX - worldX * newScale
+  viewport.x = pt.x - worldX * newScale;
+  viewport.y = pt.y - worldY * newScale;
+  viewport.scale = newScale;
+
+  renderMap();
+}
+
+function resetViewport() {
+  if (!mapImage) return;
+
+  const canvas = elements.mapCanvas;
+  // Fit map to canvas
+  const scale = Math.min(
+    canvas.width / mapImage.width,
+    canvas.height / mapImage.height
+  );
+
+  viewport.scale = scale;
+  // Center map
+  viewport.x = (canvas.width - mapImage.width * scale) / 2;
+  viewport.y = (canvas.height - mapImage.height * scale) / 2;
+  viewport.rotation = 0;
+
+  renderMap();
+}
+
 // Map Rendering - Image-based fog of war
 function renderMap() {
   const canvas = elements.mapCanvas;
   const ctx = canvas.getContext('2d');
 
   // Clear canvas with dark background
+  ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for clear
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -217,61 +322,59 @@ function renderMap() {
     return;
   }
 
-  // Calculate scale to fit map in canvas while maintaining aspect ratio
-  const scale = Math.min(
-    canvas.width / mapImage.width,
-    canvas.height / mapImage.height
-  );
+  // Draw scene with viewport transform
+  ctx.save();
+  applyViewportTransform(ctx);
 
-  const scaledWidth = mapImage.width * scale;
-  const scaledHeight = mapImage.height * scale;
-  const offsetX = (canvas.width - scaledWidth) / 2;
-  const offsetY = (canvas.height - scaledHeight) / 2;
-
-  // Draw the map image
-  ctx.drawImage(mapImage, offsetX, offsetY, scaledWidth, scaledHeight);
+  // Draw the map image (at 0,0 in world space)
+  ctx.drawImage(mapImage, 0, 0);
 
   // Apply fog mask on top
-  // The fog mask is black where hidden, transparent where revealed
-  if (fogMaskImage) {
-    ctx.drawImage(fogMaskImage, offsetX, offsetY, scaledWidth, scaledHeight);
+  if (fogDataCanvas) {
+    ctx.drawImage(fogDataCanvas, 0, 0);
   } else {
     // No fog mask yet = everything hidden (solid black)
     ctx.fillStyle = '#000000';
-    ctx.fillRect(offsetX, offsetY, scaledWidth, scaledHeight);
+    ctx.fillRect(0, 0, mapImage.width, mapImage.height);
   }
 
-  // Draw figures on top of fog - reset composite operation to ensure figures appear on top
+  // Draw figures on top of fog
   if (figures && figures.length > 0) {
     ctx.globalCompositeOperation = 'source-over';
-    drawFigures(ctx, figures, offsetX, offsetY, scale);
+    drawFigures(ctx, figures);
   }
+
+  ctx.restore();
 }
 
 // Draw figures on table display
-function drawFigures(ctx, figures, offsetX, offsetY, scale) {
+function drawFigures(ctx, figures) {
   figures.forEach(figure => {
-    // Transform canvas coords to display coords
-    const x = figure.position.x * scale + offsetX;
-    const y = figure.position.y * scale + offsetY;
-    const radius = 20 * scale;
+    // In world space, easy!
+    const x = figure.position.x;
+    const y = figure.position.y;
+    // Scale figure size slightly with zoom but not 1:1 to avoid tiny/huge icons
+    // Actually, keeping them world-scale is usually best for maps,
+    // but maybe we want a minimum visible size? 
+    // For now, let's keep them fixed world size (20px radius base)
+    const radius = 20;
 
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
 
     // Draw colored circle
     ctx.fillStyle = figure.type === 'enemy' ? '#ef4444' :
-                    figure.type === 'player' ? '#22c55e' : '#f59e0b';
+      figure.type === 'player' ? '#22c55e' : '#f59e0b';
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
 
     // Draw white border
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2 * scale;
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Draw number or POI symbol (use star instead of emoji for reliability)
+    // Draw number or POI symbol
     ctx.fillStyle = '#ffffff';
     ctx.font = `bold ${radius * 1.2}px sans-serif`;
     ctx.textAlign = 'center';
@@ -283,6 +386,180 @@ function drawFigures(ctx, figures, offsetX, offsetY, scale) {
     }
 
     ctx.restore();
+  });
+}
+
+// Interaction Event Listeners
+function initInteractionListeners() {
+  const canvas = elements.mapCanvas;
+
+  // Mouse Wheel Zoom
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    zoomAtPoint(e.clientX, e.clientY, scaleFactor);
+  }, { passive: false });
+
+  // Mouse Drag Pan
+  let isDragging = false;
+  let lastX = 0;
+  let lastY = 0;
+
+  canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    canvas.style.cursor = 'grabbing';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      const deltaX = e.clientX - lastX;
+      const deltaY = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      // Adjust viewport (taking canvas scaling into account)
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      viewport.x += deltaX * scaleX;
+      viewport.y += deltaY * scaleY;
+      renderMap();
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    canvas.style.cursor = 'default';
+  });
+
+  // Touch Gestures (Pinch/Pan)
+  let initialPinchDistance = null;
+  let initialPinchZoom = null;
+  let initialPinchCenter = null;
+  let initialViewportX = null;
+  let initialViewportY = null;
+  let lastTouchX = 0;
+  let lastTouchY = 0;
+  let fingerCount = 0;
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    fingerCount = e.touches.length;
+
+    if (fingerCount === 1) {
+      // Pan start
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+    } else if (fingerCount === 2) {
+      // Pinch start
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      initialPinchDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+      initialPinchZoom = viewport.scale;
+      initialPinchCenter = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2
+      };
+      initialViewportX = viewport.x;
+      initialViewportY = viewport.y;
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+
+    if (e.touches.length === 1 && fingerCount === 1) {
+      // Single finger pan
+      const touchX = e.touches[0].clientX;
+      const touchY = e.touches[0].clientY;
+      const deltaX = touchX - lastTouchX;
+      const deltaY = touchY - lastTouchY;
+      lastTouchX = touchX;
+      lastTouchY = touchY;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      viewport.x += deltaX * scaleX;
+      viewport.y += deltaY * scaleY;
+      renderMap();
+
+    } else if (e.touches.length === 2 && initialPinchDistance) {
+      // Pinch Zoom
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const currentDistance = Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+      );
+
+      // Calculate new scale
+      const zoomRatio = currentDistance / initialPinchDistance;
+      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, initialPinchZoom * zoomRatio));
+
+      // Calculate center point logic (zoom towards center)
+      // This is simplified pinch zoom logic
+      const currentCenter = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2
+      };
+
+      // We want to keep the point under the pinch center stable relative to the world
+
+      // Get internal canvas coords of initial center
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      const initialCanvasX = (initialPinchCenter.x - rect.left) * scaleX;
+      const initialCanvasY = (initialPinchCenter.y - rect.top) * scaleY;
+
+      // World point at initial center
+      const worldX = (initialCanvasX - initialViewportX) / initialPinchZoom;
+      const worldY = (initialCanvasY - initialViewportY) / initialPinchZoom;
+
+      // Current canvas coords
+      const currentCanvasX = (currentCenter.x - rect.left) * scaleX;
+      const currentCanvasY = (currentCenter.y - rect.top) * scaleY;
+
+      // New viewport pos: currentCanvas - world * newScale
+      viewport.x = currentCanvasX - worldX * newScale;
+      viewport.y = currentCanvasY - worldY * newScale;
+      viewport.scale = newScale;
+
+      renderMap();
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    fingerCount = e.touches.length;
+    if (fingerCount === 0) {
+      initialPinchDistance = null;
+    }
+    // Update last touch pos if we go from 2->1 fingers to avoid jump
+    if (fingerCount === 1) {
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+    }
+  });
+
+  // Double tap to reset
+  let lastTap = 0;
+  canvas.addEventListener('touchend', (e) => {
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTap;
+    if (tapLength < 500 && tapLength > 0 && e.touches.length === 0) {
+      resetViewport();
+      e.preventDefault();
+    }
+    lastTap = currentTime;
   });
 }
 

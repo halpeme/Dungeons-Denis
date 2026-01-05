@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>GM Controller - Dungeon & Denis</title>
+  <title>GM Controller - Dungeons & Denis</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/gm/gm.css?v=2">
 </head>
@@ -13,7 +13,7 @@
 <body class="bg-gray-900 text-white">
   <!-- Connection Status Bar -->
   <div id="status-bar" class="fixed top-0 left-0 right-0 bg-gray-800 p-2 flex justify-between items-center z-50 h-10">
-    <span class="text-amber-400 font-bold">Dungeon & Denis</span>
+    <span class="text-amber-400 font-bold">Dungeons & Denis</span>
     <div id="connection-status" class="flex items-center gap-2">
       <span class="w-2 h-2 rounded-full bg-red-500" id="status-dot"></span>
       <span id="status-text" class="text-sm">Disconnected</span>
@@ -116,6 +116,17 @@
                 <canvas id="fog-canvas" class="absolute inset-0 w-full h-full"></canvas>
                 <canvas id="preview-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
               </div>
+              <!-- Vertical Zoom Slider (Overlay) -->
+              <div
+                class="absolute right-4 top-1/2 -translate-y-1/2 z-20 h-48 w-8 flex items-center justify-center pointer-events-auto">
+                <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1"
+                  class="w-32 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                <!-- Tooltip floating to the left of the slider (since slider is rotated) -->
+                <div id="zoom-tooltip"
+                  class="absolute left-[-3rem] bg-gray-900 text-amber-500 font-bold text-xs px-2 py-1 rounded opacity-0 transition-opacity pointer-events-none whitespace-nowrap">
+                  100%
+                </div>
+              </div>
             </div>
 
             <!-- Confirm/Cancel buttons (overlay on map when preview exists) -->
@@ -145,15 +156,19 @@
           <div id="mode-toggle"
             class="hidden fixed safe-bottom-4 left-4 z-40 flex rounded-lg overflow-hidden shadow-lg">
             <button id="mode-zoom-btn" class="px-4 py-3 bg-amber-600 font-bold text-sm active">Zoom</button>
-            <button id="reset-zoom-btn"
-              class="px-2 py-3 bg-gray-600 hover:bg-gray-500 font-bold text-xs border-l border-gray-500">Reset
-              Zoom</button>
             <button id="mode-draw-btn"
               class="px-4 py-3 bg-gray-700 font-bold text-sm border-l border-gray-500">Reveal</button>
           </div>
 
+          <!-- Reset Zoom Button (floating above mode toggle, only visible when zoomed) -->
+          <button id="reset-zoom-btn"
+            class="hidden fixed z-40 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-bold text-xs shadow-lg"
+            style="left: 1rem; bottom: calc(4rem + env(safe-area-inset-bottom) + 3.5rem);">
+            ↺ Reset
+          </button>
+
           <!-- Controls Toggle Button (overlay on map) -->
-          <button id="controls-toggle-btn"
+          <button id="settings-toggle-btn" title="Map Settings"
             class="hidden fixed safe-bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-gray-700 shadow-lg flex items-center justify-center text-xl">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
               stroke="currentColor" class="w-6 h-6 text-gray-300">
@@ -163,9 +178,47 @@
             </svg>
           </button>
 
-          <!-- Collapsible Controls Panel (starts collapsed) -->
-          <div id="controls-panel"
-            class="hidden fixed safe-bottom-20 right-4 z-30 bg-gray-800 rounded-lg shadow-xl p-3 w-72 collapsed">
+          <!-- Floating Figure Palette (collapsible) -->
+          <div id="figure-palette-floating" class="hidden fixed z-40"
+            style="left: 1rem; top: 50%; transform: translateY(-50%);">
+            <!-- Toggle Button -->
+            <button id="figure-palette-toggle"
+              class="w-11 h-11 rounded-full bg-gray-700 shadow-lg flex items-center justify-center text-lg hover:bg-gray-600 transition-colors">
+              🎭
+            </button>
+            <!-- Expanded Palette -->
+            <div id="figure-palette-expanded"
+              class="hidden absolute left-14 top-1/2 -translate-y-1/2 bg-gray-800 rounded-lg shadow-xl p-2 min-w-max">
+              <div class="flex flex-col gap-1">
+                <!-- Enemies Row -->
+                <div class="flex gap-1">
+                  <button class="figure-btn-float" data-type="enemy" data-number="1">🔴1</button>
+                  <button class="figure-btn-float" data-type="enemy" data-number="2">🔴2</button>
+                  <button class="figure-btn-float" data-type="enemy" data-number="3">🔴3</button>
+                  <button class="figure-btn-float" data-type="enemy" data-number="4">🔴4</button>
+                  <button class="figure-btn-float" data-type="enemy" data-number="5">🔴5</button>
+                </div>
+                <!-- Players Row -->
+                <div class="flex gap-1">
+                  <button class="figure-btn-float" data-type="player" data-number="1">🟢1</button>
+                  <button class="figure-btn-float" data-type="player" data-number="2">🟢2</button>
+                  <button class="figure-btn-float" data-type="player" data-number="3">🟢3</button>
+                  <button class="figure-btn-float" data-type="player" data-number="4">🟢4</button>
+                  <button class="figure-btn-float" data-type="player" data-number="5">🟢5</button>
+                </div>
+                <!-- Special Row -->
+                <div class="flex gap-1 justify-between">
+                  <button class="figure-btn-float" data-type="poi">★</button>
+                  <button id="clear-figures-btn-float" class="text-xs text-red-400 hover:text-red-300 px-2">Clear
+                    All</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settings Modal (was controls-panel) -->
+          <div id="settings-modal"
+            class="hidden fixed safe-bottom-20 right-4 z-30 bg-gray-800 rounded-lg shadow-xl p-3 w-72">
             <!-- Map Controls -->
             <div class="flex gap-2 mb-3">
               <button id="change-map-btn" class="flex-1 bg-gray-700 hover:bg-gray-600 p-2 rounded text-xs">
@@ -196,57 +249,13 @@
               </div>
             </details>
 
-            <!-- Figure Palette (compact) -->
-            <div class="mb-3">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-xs font-bold">Figures</span>
-                <button id="clear-figures-btn" class="text-xs text-red-400 hover:text-red-300">Clear</button>
-              </div>
-              <div id="figure-palette" class="flex gap-1 flex-wrap">
-                <button class="figure-btn" data-type="enemy" data-number="1">🔴1</button>
-                <button class="figure-btn" data-type="enemy" data-number="2">🔴2</button>
-                <button class="figure-btn" data-type="enemy" data-number="3">🔴3</button>
-                <button class="figure-btn" data-type="enemy" data-number="4">🔴4</button>
-                <button class="figure-btn" data-type="enemy" data-number="5">🔴5</button>
-                <button class="figure-btn" data-type="player" data-number="1">🟢1</button>
-                <button class="figure-btn" data-type="player" data-number="2">🟢2</button>
-                <button class="figure-btn" data-type="player" data-number="3">🟢3</button>
-                <button class="figure-btn" data-type="player" data-number="4">🟢4</button>
-                <button class="figure-btn" data-type="player" data-number="5">🟢5</button>
-                <button class="figure-btn" data-type="poi">★</button>
-              </div>
-            </div>
 
-            <!-- Zoom & Rotate Controls -->
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <div class="flex items-center gap-1">
-                <button id="zoom-out-btn"
-                  class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-sm font-bold">−</button>
-                <span id="zoom-level" class="text-xs text-gray-300 w-10 text-center">100%</span>
-                <button id="zoom-in-btn"
-                  class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-sm font-bold">+</button>
-                <button id="zoom-reset-btn"
-                  class="bg-gray-700 hover:bg-gray-600 px-2 h-8 rounded text-xs">Reset</button>
-              </div>
+
+            <!-- Rotate Controls -->
+            <div class="flex items-center justify-end gap-2 mb-3">
               <div class="flex items-center gap-1">
                 <button id="rotate-left-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded">↺</button>
                 <button id="rotate-right-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded">↻</button>
-              </div>
-            </div>
-
-            <!-- Brush Controls -->
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1">
-                <span class="text-xs text-gray-400">Brush:</span>
-                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-7 h-7 rounded text-xs"
-                  data-size="20">S</button>
-                <button class="brush-size-btn bg-amber-600 w-7 h-7 rounded text-xs" data-size="40">M</button>
-                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-7 h-7 rounded text-xs"
-                  data-size="80">L</button>
-              </div>
-              <div class="flex items-center gap-1">
-                <button id="mode-reveal-btn" class="bg-green-600 px-2 py-1 rounded text-xs">Reveal</button>
-                <button id="mode-hide-btn" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs">Hide</button>
               </div>
             </div>
           </div>
@@ -305,7 +314,7 @@
   </nav>
 
   <script src="/shared/ws-client.js"></script>
-  <script src="/gm/gm.js"></script>
+  <script type="module" src="/gm/gm.js?v=6"></script>
 </body>
 
 </html>
