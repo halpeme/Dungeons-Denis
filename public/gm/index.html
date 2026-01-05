@@ -102,61 +102,7 @@
 
           <!-- Map Canvas Section (shown when image loaded) -->
           <div id="map-canvas-section" class="hidden">
-            <!-- Controls -->
-            <div class="flex gap-2 mb-3">
-              <button id="change-map-btn" class="flex-1 bg-gray-700 hover:bg-gray-600 p-2 rounded text-sm">
-                Change Image
-              </button>
-              <button id="clear-fog-btn" class="flex-1 bg-red-700 hover:bg-red-600 p-2 rounded text-sm">
-                Hide All
-              </button>
-              <button id="reveal-all-btn" class="flex-1 bg-green-700 hover:bg-green-600 p-2 rounded text-sm">
-                Show All
-              </button>
-            </div>
-
-            <!-- Preset Map Selector (collapsible) -->
-            <details id="preset-selector-loaded" class="mb-3 bg-gray-700 rounded-lg">
-              <summary class="p-2 cursor-pointer text-sm font-bold text-gray-300 hover:text-white">
-                Load Preset Map
-              </summary>
-              <div class="p-2 pt-0">
-                <select id="preset-category-filter-loaded" class="w-full bg-gray-600 text-sm px-2 py-1 rounded mb-2">
-                  <option value="all">All Maps</option>
-                  <option value="City">City Maps</option>
-                  <option value="Region">Region Maps</option>
-                </select>
-                <div id="preset-maps-grid-loaded" class="grid grid-cols-3 gap-1 max-h-32 overflow-y-auto">
-                  <!-- Populated by JavaScript -->
-                </div>
-              </div>
-            </details>
-
-            <!-- Figure Palette -->
-            <div class="mb-3">
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-bold">Figures</span>
-                <button id="clear-figures-btn" class="text-xs text-red-400 hover:text-red-300">Clear All</button>
-              </div>
-              <div id="figure-palette" class="flex gap-2 flex-wrap">
-                <!-- Red enemies 1-5 -->
-                <button class="figure-btn" data-type="enemy" data-number="1">🔴1</button>
-                <button class="figure-btn" data-type="enemy" data-number="2">🔴2</button>
-                <button class="figure-btn" data-type="enemy" data-number="3">🔴3</button>
-                <button class="figure-btn" data-type="enemy" data-number="4">🔴4</button>
-                <button class="figure-btn" data-type="enemy" data-number="5">🔴5</button>
-                <!-- Green players 1-5 -->
-                <button class="figure-btn" data-type="player" data-number="1">🟢1</button>
-                <button class="figure-btn" data-type="player" data-number="2">🟢2</button>
-                <button class="figure-btn" data-type="player" data-number="3">🟢3</button>
-                <button class="figure-btn" data-type="player" data-number="4">🟢4</button>
-                <button class="figure-btn" data-type="player" data-number="5">🟢5</button>
-                <!-- POI -->
-                <button class="figure-btn" data-type="poi">★</button>
-              </div>
-            </div>
-
-            <!-- Map Canvas (touch to reveal/hide) -->
+            <!-- Map Canvas (maximized) -->
             <div id="map-viewport" class="relative bg-black rounded-lg mx-auto overflow-hidden">
               <div id="map-canvas-container" class="relative">
                 <canvas id="map-canvas" class="absolute inset-0 w-full h-full"></canvas>
@@ -166,148 +112,109 @@
               </div>
             </div>
 
-            <!-- Zoom & Rotate Controls -->
-            <div id="zoom-rotate-controls" class="mt-2 flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-1">
-                <span class="text-xs text-gray-400 mr-1">Zoom:</span>
-                <button id="zoom-out-btn" class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 w-10 h-10 rounded text-lg font-bold">−</button>
-                <span id="zoom-level" class="text-xs text-gray-300 w-12 text-center">100%</span>
-                <button id="zoom-in-btn" class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 w-10 h-10 rounded text-lg font-bold">+</button>
-                <button id="zoom-reset-btn" class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 px-3 h-10 rounded text-xs">Reset</button>
-                <button id="draw-mode-btn" class="hidden bg-gray-700 hover:bg-gray-600 active:bg-gray-500 px-3 h-10 rounded text-xs ml-2">Draw Mode</button>
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-xs text-gray-400 mr-1">Rotate:</span>
-                <button id="rotate-left-btn" class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 w-10 h-10 rounded text-lg">↺</button>
-                <button id="rotate-right-btn" class="bg-gray-700 hover:bg-gray-600 active:bg-gray-500 w-10 h-10 rounded text-lg">↻</button>
-              </div>
-            </div>
-            <p class="text-gray-500 text-xs mt-1 sm:hidden">Scroll to zoom, drag to pan when zoomed</p>
-
-            <!-- Confirm/Cancel buttons (shown when preview exists) -->
-            <div id="preview-actions" class="hidden mt-3 flex gap-2">
-              <button id="cancel-preview-btn" class="flex-1 bg-gray-700 hover:bg-gray-600 p-3 rounded-lg font-bold">
+            <!-- Confirm/Cancel buttons (overlay on map when preview exists) -->
+            <div id="preview-actions" class="hidden absolute bottom-16 left-2 right-2 z-50 flex gap-2">
+              <button id="cancel-preview-btn" class="flex-1 bg-gray-700/90 hover:bg-gray-600 p-3 rounded-lg font-bold shadow-lg backdrop-blur">
                 Cancel
               </button>
-              <button id="confirm-preview-btn" class="flex-1 bg-green-600 hover:bg-green-500 p-3 rounded-lg font-bold">
-                Confirm Reveal
+              <button id="confirm-preview-btn" class="flex-1 bg-green-600/90 hover:bg-green-500 p-3 rounded-lg font-bold shadow-lg backdrop-blur">
+                Confirm
               </button>
+            </div>
+          </div>
+
+          <!-- Mode Toggle (overlay on map) -->
+          <div id="mode-toggle" class="hidden fixed bottom-4 left-4 z-40 flex rounded-lg overflow-hidden shadow-lg">
+            <button id="mode-zoom-btn" class="px-4 py-3 bg-amber-600 font-bold text-sm active">Zoom</button>
+            <button id="mode-draw-btn" class="px-4 py-3 bg-gray-700 font-bold text-sm">Draw</button>
+          </div>
+
+          <!-- Controls Toggle Button (overlay on map) -->
+          <button id="controls-toggle-btn" class="hidden fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-gray-700 shadow-lg flex items-center justify-center text-xl">
+            <span>Cog</span>
+          </button>
+
+          <!-- Collapsible Controls Panel (starts collapsed) -->
+          <div id="controls-panel" class="hidden fixed bottom-20 right-4 z-30 bg-gray-800 rounded-lg shadow-xl p-3 w-72 collapsed">
+            <!-- Map Controls -->
+            <div class="flex gap-2 mb-3">
+              <button id="change-map-btn" class="flex-1 bg-gray-700 hover:bg-gray-600 p-2 rounded text-xs">
+                Change
+              </button>
+              <button id="clear-fog-btn" class="flex-1 bg-red-700 hover:bg-red-600 p-2 rounded text-xs">
+                Hide All
+              </button>
+              <button id="reveal-all-btn" class="flex-1 bg-green-700 hover:bg-green-600 p-2 rounded text-xs">
+                Show All
+              </button>
+            </div>
+
+            <!-- Preset Map Selector (collapsible) -->
+            <details id="preset-selector-loaded" class="mb-3 bg-gray-700 rounded-lg">
+              <summary class="p-2 cursor-pointer text-xs font-bold text-gray-300 hover:text-white">
+                Preset Maps
+              </summary>
+              <div class="p-2 pt-0">
+                <select id="preset-category-filter-loaded" class="w-full bg-gray-600 text-xs px-2 py-1 rounded mb-2">
+                  <option value="all">All Maps</option>
+                  <option value="City">City Maps</option>
+                  <option value="Region">Region Maps</option>
+                </select>
+                <div id="preset-maps-grid-loaded" class="grid grid-cols-3 gap-1 max-h-24 overflow-y-auto">
+                  <!-- Populated by JavaScript -->
+                </div>
+              </div>
+            </details>
+
+            <!-- Figure Palette (compact) -->
+            <div class="mb-3">
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-bold">Figures</span>
+                <button id="clear-figures-btn" class="text-xs text-red-400 hover:text-red-300">Clear</button>
+              </div>
+              <div id="figure-palette" class="flex gap-1 flex-wrap">
+                <button class="figure-btn" data-type="enemy" data-number="1">🔴1</button>
+                <button class="figure-btn" data-type="enemy" data-number="2">🔴2</button>
+                <button class="figure-btn" data-type="enemy" data-number="3">🔴3</button>
+                <button class="figure-btn" data-type="enemy" data-number="4">🔴4</button>
+                <button class="figure-btn" data-type="enemy" data-number="5">🔴5</button>
+                <button class="figure-btn" data-type="player" data-number="1">🟢1</button>
+                <button class="figure-btn" data-type="player" data-number="2">🟢2</button>
+                <button class="figure-btn" data-type="player" data-number="3">🟢3</button>
+                <button class="figure-btn" data-type="player" data-number="4">🟢4</button>
+                <button class="figure-btn" data-type="player" data-number="5">🟢5</button>
+                <button class="figure-btn" data-type="poi">★</button>
+              </div>
+            </div>
+
+            <!-- Zoom & Rotate Controls -->
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div class="flex items-center gap-1">
+                <button id="zoom-out-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-sm font-bold">−</button>
+                <span id="zoom-level" class="text-xs text-gray-300 w-10 text-center">100%</span>
+                <button id="zoom-in-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-sm font-bold">+</button>
+                <button id="zoom-reset-btn" class="bg-gray-700 hover:bg-gray-600 px-2 h-8 rounded text-xs">Reset</button>
+              </div>
+              <div class="flex items-center gap-1">
+                <button id="rotate-left-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded">↺</button>
+                <button id="rotate-right-btn" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded">↻</button>
+              </div>
             </div>
 
             <!-- Brush Controls -->
-            <div class="mt-3 flex items-center gap-4">
-              <span class="text-sm text-gray-400">Brush:</span>
-              <div class="flex gap-1">
-                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-xs" data-size="20">S</button>
-                <button class="brush-size-btn bg-amber-600 w-8 h-8 rounded text-xs" data-size="40">M</button>
-                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded text-xs" data-size="80">L</button>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1">
+                <span class="text-xs text-gray-400">Brush:</span>
+                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-7 h-7 rounded text-xs" data-size="20">S</button>
+                <button class="brush-size-btn bg-amber-600 w-7 h-7 rounded text-xs" data-size="40">M</button>
+                <button class="brush-size-btn bg-gray-700 hover:bg-gray-600 w-7 h-7 rounded text-xs" data-size="80">L</button>
               </div>
-              <span class="text-sm text-gray-400 ml-4">Mode:</span>
-              <div class="flex gap-1">
-                <button id="mode-reveal-btn" class="bg-green-600 px-3 py-1 rounded text-sm">Reveal</button>
-                <button id="mode-hide-btn" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-sm">Hide</button>
+              <div class="flex items-center gap-1">
+                <button id="mode-reveal-btn" class="bg-green-600 px-2 py-1 rounded text-xs">Reveal</button>
+                <button id="mode-hide-btn" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs">Hide</button>
               </div>
             </div>
-            <p class="text-gray-500 text-xs mt-2">Draw on the map to reveal or hide areas</p>
           </div>
-        </div>
-
-        <!-- Handouts Tab -->
-        <div id="tab-handouts" class="tab-panel hidden">
-          <h3 class="font-bold mb-3">Handouts</h3>
-          <div class="space-y-2">
-            <input type="file" id="handout-file" accept="image/*" class="hidden">
-            <button id="upload-handout-btn" class="w-full bg-gray-700 hover:bg-gray-600 p-3 rounded-lg">
-              Upload Image
-            </button>
-            <input type="text" id="handout-url" placeholder="Or paste image URL" class="w-full bg-gray-700 p-3 rounded-lg">
-            <button id="push-handout-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 p-3 rounded-lg font-bold">
-              Push to Table
-            </button>
-            <button id="clear-handout-btn" class="w-full bg-red-700 hover:bg-red-600 p-3 rounded-lg">
-              Clear Handout
-            </button>
-          </div>
-        </div>
-
-        <!-- Decisions Tab -->
-        <div id="tab-decisions" class="tab-panel hidden">
-          <h3 class="font-bold mb-3">Decision Point</h3>
-          <input type="text" id="decision-title" placeholder="Title (e.g., 'Which path?')" class="w-full bg-gray-700 p-3 rounded-lg mb-2">
-          <div id="decision-options" class="space-y-2 mb-2">
-            <input type="text" placeholder="Option 1" class="decision-option w-full bg-gray-700 p-2 rounded">
-            <input type="text" placeholder="Option 2" class="decision-option w-full bg-gray-700 p-2 rounded">
-          </div>
-          <button id="add-option-btn" class="text-sm text-gray-400 mb-3">+ Add option</button>
-          <button id="push-decision-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 p-3 rounded-lg font-bold">
-            Push Decision
-          </button>
-          <button id="clear-decision-btn" class="w-full bg-red-700 hover:bg-red-600 p-3 rounded-lg mt-2">
-            Clear Decision
-          </button>
-        </div>
-
-        <!-- Puzzles Tab -->
-        <div id="tab-puzzles" class="tab-panel hidden">
-          <h3 class="font-bold mb-3">Puzzles</h3>
-          <select id="puzzle-type" class="w-full bg-gray-700 p-3 rounded-lg mb-3">
-            <option value="choice">Multiple Choice</option>
-            <option value="riddle">Text Riddle</option>
-            <option value="sequence">Sequence Puzzle</option>
-            <option value="lockedDoor">Locked Door (Symbols)</option>
-          </select>
-
-          <!-- Choice puzzle form -->
-          <div id="puzzle-choice-form" class="space-y-2">
-            <input type="text" id="choice-question" placeholder="Question" class="w-full bg-gray-700 p-2 rounded">
-            <input type="text" id="choice-opt1" placeholder="Option 1" class="w-full bg-gray-700 p-2 rounded">
-            <input type="text" id="choice-opt2" placeholder="Option 2" class="w-full bg-gray-700 p-2 rounded">
-            <input type="text" id="choice-opt3" placeholder="Option 3" class="w-full bg-gray-700 p-2 rounded">
-            <input type="text" id="choice-answer" placeholder="Correct option (1, 2, or 3)" class="w-full bg-gray-700 p-2 rounded">
-          </div>
-
-          <!-- Riddle puzzle form -->
-          <div id="puzzle-riddle-form" class="space-y-2 hidden">
-            <textarea id="riddle-question" placeholder="Riddle text" class="w-full bg-gray-700 p-2 rounded h-24"></textarea>
-            <input type="text" id="riddle-answer" placeholder="Answer" class="w-full bg-gray-700 p-2 rounded">
-            <input type="text" id="riddle-hint" placeholder="Hint (optional)" class="w-full bg-gray-700 p-2 rounded">
-          </div>
-
-          <!-- Sequence puzzle form -->
-          <div id="puzzle-sequence-form" class="space-y-2 hidden">
-            <input type="text" id="sequence-instruction" placeholder="Instruction" class="w-full bg-gray-700 p-2 rounded">
-            <textarea id="sequence-items" placeholder="Items (one per line)" class="w-full bg-gray-700 p-2 rounded h-24"></textarea>
-            <input type="text" id="sequence-order" placeholder="Correct order (e.g., 3,1,4,2)" class="w-full bg-gray-700 p-2 rounded">
-          </div>
-
-          <!-- Locked Door puzzle form -->
-          <div id="puzzle-lockedDoor-form" class="space-y-2 hidden">
-            <input type="text" id="door-title" placeholder="Door name (e.g., Ancient Gate)" class="w-full bg-gray-700 p-2 rounded">
-            <p class="text-sm text-gray-400">Select symbols to use:</p>
-            <div id="door-symbols-select" class="grid grid-cols-6 gap-2 mb-2">
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="sun">☀</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="moon">☽</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="star">★</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="fire">🔥</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="water">💧</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="skull">💀</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="key">🗝</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="eye">👁</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="snake">🐍</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="crown">👑</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="sword">⚔</button>
-              <button type="button" class="symbol-toggle p-2 text-2xl bg-gray-700 rounded hover:bg-gray-600" data-symbol="shield">🛡</button>
-            </div>
-            <p class="text-sm text-gray-400">Correct sequence (click symbols in order):</p>
-            <div id="door-sequence-display" class="flex gap-2 min-h-12 bg-gray-800 p-2 rounded items-center">
-              <span class="text-gray-500">Click symbols above...</span>
-            </div>
-            <button type="button" id="clear-door-sequence" class="text-sm text-red-400">Clear sequence</button>
-          </div>
-
-          <button id="push-puzzle-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 p-3 rounded-lg font-bold mt-3">
-            Push Puzzle
-          </button>
         </div>
 
         <!-- Settings Tab -->
@@ -353,15 +260,6 @@
     <div class="flex">
       <button class="tab-btn flex-1 py-4 text-center text-sm font-medium text-amber-400" data-tab="map">
         Map
-      </button>
-      <button class="tab-btn flex-1 py-4 text-center text-sm font-medium text-gray-400" data-tab="handouts">
-        Handouts
-      </button>
-      <button class="tab-btn flex-1 py-4 text-center text-sm font-medium text-gray-400" data-tab="decisions">
-        Decisions
-      </button>
-      <button class="tab-btn flex-1 py-4 text-center text-sm font-medium text-gray-400" data-tab="puzzles">
-        Puzzles
       </button>
       <button class="tab-btn flex-1 py-4 text-center text-sm font-medium text-gray-400" data-tab="settings">
         Settings

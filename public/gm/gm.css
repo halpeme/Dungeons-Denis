@@ -96,10 +96,31 @@ button {
   touch-action: manipulation;
 }
 
-/* Map viewport - contains the canvas layers */
+/* Map viewport - contains the canvas layers (maximized by default) */
 #map-viewport {
-  max-height: calc(100vh - 340px);
-  max-height: calc(100dvh - 340px);
+  max-height: calc(100vh - 120px);
+  max-height: calc(100dvh - 120px);
+}
+
+/* Mode toggle button states */
+#mode-toggle button {
+  transition: background-color 0.2s;
+}
+
+#mode-toggle button.active {
+  background-color: rgb(217, 119, 6); /* amber-600 */
+}
+
+/* Collapsible controls panel */
+#controls-panel {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  transform-origin: bottom right;
+}
+
+#controls-panel.collapsed {
+  transform: scale(0.95);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Map canvas container */
@@ -129,16 +150,17 @@ button {
   pointer-events: none;
 }
 
-/* Figure palette */
+/* Figure palette (compact for panel) */
 .figure-btn {
-  min-width: 40px;
-  height: 40px;
+  min-width: 28px;
+  height: 28px;
   background: #374151;
-  border: 2px solid #4b5563;
-  border-radius: 8px;
-  font-size: 20px;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  font-size: 14px;
   cursor: grab;
   transition: all 0.2s;
+  padding: 0;
 }
 
 .figure-btn:active {

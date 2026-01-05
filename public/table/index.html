@@ -53,28 +53,7 @@
       <canvas id="map-canvas" class="w-full h-full"></canvas>
     </div>
 
-    <!-- Handout Mode -->
-    <div id="display-handout" class="display-mode absolute inset-0 hidden flex items-center justify-center bg-black">
-      <img id="handout-image" class="max-w-full max-h-full object-contain" src="" alt="">
-    </div>
-
-    <!-- Decision Mode -->
-    <div id="display-decision" class="display-mode absolute inset-0 hidden flex items-center justify-center bg-black bg-opacity-80">
-      <div class="text-center max-w-4xl mx-auto p-8">
-        <h2 id="decision-title" class="text-5xl font-bold mb-12 text-amber-400"></h2>
-        <div id="decision-options" class="grid gap-6"></div>
-      </div>
-    </div>
-
-    <!-- Puzzle Mode -->
-    <div id="display-puzzle" class="display-mode absolute inset-0 hidden flex items-center justify-center bg-black bg-opacity-80">
-      <div id="puzzle-container" class="text-center max-w-4xl mx-auto p-8 w-full"></div>
-    </div>
   </div>
-
-  <!-- Audio elements -->
-  <audio id="audio-reveal" preload="auto"></audio>
-  <audio id="audio-notification" preload="auto"></audio>
 
   <script src="/shared/ws-client.js"></script>
   <script src="/table/table.js"></script>

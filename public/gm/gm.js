@@ -36,8 +36,10 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.25;
 
-// Pan/Draw mode state
-let isDrawMode = false;  // false = pan mode (when zoomed), true = draw mode
+// Mode state
+const MODE = { ZOOM: 'zoom', DRAW: 'draw' };
+let currentMode = MODE.ZOOM;  // Default to zoom mode
+let isControlsPanelOpen = false;  // Start collapsed
 let isPanning = false;
 let lastPanX = 0;
 let lastPanY = 0;
@@ -185,7 +187,6 @@ function zoomAtPoint(clientX, clientY, scaleFactor) {
   viewport.y = internalY - worldPoint.y * viewport.scale;
 
   updateZoomDisplay();
-  updateDrawModeButton();
   updateCursor();
   renderAll();
 }
@@ -210,9 +211,7 @@ function resetViewport() {
   viewport.y = 0;
   viewport.scale = 1;
   viewport.rotation = 0;
-  isDrawMode = false;
   updateZoomDisplay();
-  updateDrawModeButton();
   updateCursor();
   renderAll();
 }
@@ -225,36 +224,53 @@ function updateZoomDisplay() {
   }
 }
 
-// Update draw mode button visibility and state
-function updateDrawModeButton() {
-  const btn = document.getElementById('draw-mode-btn');
-  if (!btn) return;
-
-  if (viewport.scale > 1) {
-    btn.classList.remove('hidden');
-    if (isDrawMode) {
-      btn.classList.add('bg-amber-600');
-      btn.classList.remove('bg-gray-700');
-      btn.textContent = 'Draw Mode ON';
-    } else {
-      btn.classList.remove('bg-amber-600');
-      btn.classList.add('bg-gray-700');
-      btn.textContent = 'Draw Mode';
-    }
-  } else {
-    btn.classList.add('hidden');
-    isDrawMode = false;
-  }
-}
-
 // Update cursor based on mode
 function updateCursor() {
   if (!fogCanvas) return;
 
-  if (viewport.scale > 1 && !isDrawMode) {
+  if (currentMode === MODE.ZOOM) {
     fogCanvas.style.cursor = isPanning ? 'grabbing' : 'grab';
   } else {
     fogCanvas.style.cursor = 'crosshair';
+  }
+}
+
+// Set interaction mode (zoom or draw)
+function setMode(mode) {
+  currentMode = mode;
+
+  const zoomBtn = document.getElementById('mode-zoom-btn');
+  const drawBtn = document.getElementById('mode-draw-btn');
+
+  if (zoomBtn) {
+    zoomBtn.classList.toggle('active', mode === MODE.ZOOM);
+    zoomBtn.classList.toggle('bg-amber-600', mode === MODE.ZOOM);
+    zoomBtn.classList.toggle('bg-gray-700', mode !== MODE.ZOOM);
+  }
+  if (drawBtn) {
+    drawBtn.classList.toggle('active', mode === MODE.DRAW);
+    drawBtn.classList.toggle('bg-amber-600', mode === MODE.DRAW);
+    drawBtn.classList.toggle('bg-gray-700', mode !== MODE.DRAW);
+  }
+
+  // Cancel any active drawing when switching to zoom
+  if (mode === MODE.ZOOM && isDrawing) {
+    isDrawing = false;
+  }
+
+  updateCursor();
+}
+
+// Toggle controls panel visibility
+function toggleControlsPanel() {
+  isControlsPanelOpen = !isControlsPanelOpen;
+
+  const panel = document.getElementById('controls-panel');
+  const toggleBtn = document.getElementById('controls-toggle-btn');
+
+  if (panel) panel.classList.toggle('collapsed', !isControlsPanelOpen);
+  if (toggleBtn) {
+    toggleBtn.querySelector('span').textContent = isControlsPanelOpen ? 'X' : 'Cog';
   }
 }
 
@@ -425,10 +441,6 @@ function initWebSocket() {
     elements.tableConnected.className = 'ml-2 text-red-400';
   });
 
-  ws.on('puzzle:submitted', (data) => {
-    alert(`Answer received: ${JSON.stringify(data.answer)}`);
-  });
-
   ws.on('error', (data) => {
     console.error('Server error:', data);
     alert(`Error: ${data.message}`);
@@ -558,35 +570,12 @@ function initEventListeners() {
     setRotation(viewport.rotation + 90);
   });
 
-  // Draw mode toggle
-  document.getElementById('draw-mode-btn')?.addEventListener('click', () => {
-    isDrawMode = !isDrawMode;
-    updateDrawModeButton();
-    updateCursor();
-  });
+  // Mode toggle (Zoom / Draw)
+  document.getElementById('mode-zoom-btn')?.addEventListener('click', () => setMode(MODE.ZOOM));
+  document.getElementById('mode-draw-btn')?.addEventListener('click', () => setMode(MODE.DRAW));
 
-  // Handouts
-  document.getElementById('upload-handout-btn')?.addEventListener('click', () => {
-    document.getElementById('handout-file').click();
-  });
-  document.getElementById('handout-file')?.addEventListener('change', handleHandoutUpload);
-  document.getElementById('push-handout-btn')?.addEventListener('click', pushHandout);
-  document.getElementById('clear-handout-btn')?.addEventListener('click', clearHandout);
-
-  // Decisions
-  document.getElementById('add-option-btn')?.addEventListener('click', addDecisionOption);
-  document.getElementById('push-decision-btn')?.addEventListener('click', pushDecision);
-  document.getElementById('clear-decision-btn')?.addEventListener('click', clearDecision);
-
-  // Puzzles
-  document.getElementById('puzzle-type')?.addEventListener('change', (e) => {
-    document.querySelectorAll('[id^="puzzle-"][id$="-form"]').forEach(form => {
-      form.classList.add('hidden');
-    });
-    document.getElementById(`puzzle-${e.target.value}-form`)?.classList.remove('hidden');
-  });
-  document.getElementById('push-puzzle-btn')?.addEventListener('click', pushPuzzle);
-  initLockedDoorForm();
+  // Controls panel toggle
+  document.getElementById('controls-toggle-btn')?.addEventListener('click', toggleControlsPanel);
 
   // Display mode
   document.querySelectorAll('.display-mode-btn').forEach(btn => {
@@ -626,7 +615,7 @@ function initMapCanvas() {
 
   if (!mapCanvas || !fogCanvas) return;
 
-  mapCtx = mapCanvas.getContext('2d');
+  mapCtx = mapCanvas.getContext('2d', { alpha: false });
   fogCtx = fogCanvas.getContext('2d');
   if (figureCanvas) {
     figureCtx = figureCanvas.getContext('2d');
@@ -747,8 +736,8 @@ function startDrawing(e) {
 
   const pos = screenToCanvas(e.clientX, e.clientY);
 
-  // Check if we should pan instead of draw (zoomed in + not in draw mode)
-  if (viewport.scale > 1 && !isDrawMode) {
+  // ZOOM MODE: Only pan, no fog or figure interaction
+  if (currentMode === MODE.ZOOM) {
     isPanning = true;
     lastPanX = e.clientX;
     lastPanY = e.clientY;
@@ -756,7 +745,7 @@ function startDrawing(e) {
     return;
   }
 
-  // Check if clicking on a figure first
+  // DRAW MODE: Check if clicking on a figure first
   const clickedFigure = findFigureAtPosition(pos);
   if (clickedFigure) {
     // Record start position for click vs drag detection
@@ -782,15 +771,21 @@ function startDrawing(e) {
 function draw(e) {
   if (!mapImage) return;
 
-  // Handle panning
+  // Handle panning (instant rendering for maximum speed)
   if (isPanning) {
-    const dx = e.clientX - lastPanX;
-    const dy = e.clientY - lastPanY;
+    // Convert screen pixel delta to internal canvas pixel delta
+    const rect = mapCanvas.getBoundingClientRect();
+    const scaleX = mapCanvas.width / rect.width;
+    const scaleY = mapCanvas.height / rect.height;
+
+    const dx = (e.clientX - lastPanX) * scaleX;
+    const dy = (e.clientY - lastPanY) * scaleY;
+
     viewport.x += dx;
     viewport.y += dy;
     lastPanX = e.clientX;
     lastPanY = e.clientY;
-    requestAnimationFrame(renderAll);
+    renderAll(); // Immediate render - browser handles throttling
     return;
   }
 
@@ -1182,13 +1177,13 @@ function setupMapCanvases(img) {
   fogDataCanvas = document.createElement('canvas');
   fogDataCanvas.width = img.width;
   fogDataCanvas.height = img.height;
-  fogDataCtx = fogDataCanvas.getContext('2d');
+  fogDataCtx = fogDataCanvas.getContext('2d', { willReadFrequently: true });
 
   // Create/resize offscreen preview data canvas
   previewDataCanvas = document.createElement('canvas');
   previewDataCanvas.width = img.width;
   previewDataCanvas.height = img.height;
-  previewDataCtx = previewDataCanvas.getContext('2d');
+  previewDataCtx = previewDataCanvas.getContext('2d', { willReadFrequently: true });
 
   // Clear any existing preview
   if (previewDataCtx) {
@@ -1207,6 +1202,12 @@ function setupMapCanvases(img) {
 function showMapCanvas() {
   document.getElementById('map-upload-section').classList.add('hidden');
   document.getElementById('map-canvas-section').classList.remove('hidden');
+  // Show mode toggle and controls button (panel stays collapsed)
+  document.getElementById('mode-toggle')?.classList.remove('hidden');
+  document.getElementById('controls-toggle-btn')?.classList.remove('hidden');
+  document.getElementById('controls-panel')?.classList.remove('hidden');
+  // Set cursor for default zoom mode
+  updateCursor();
 }
 
 function clearFog() {
@@ -1476,146 +1477,4 @@ function saveSession() {
 
 function clearSession() {
   localStorage.removeItem('dungeon-bridge-session');
-}
-
-// Handouts
-function handleHandoutUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    document.getElementById('handout-url').value = event.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function pushHandout() {
-  const url = document.getElementById('handout-url').value;
-  if (!url) {
-    alert('Please enter an image URL or upload an image');
-    return;
-  }
-  ws.send('handout:push', { imageUrl: url });
-}
-
-function clearHandout() {
-  ws.send('handout:clear');
-}
-
-// Decisions
-function addDecisionOption() {
-  const container = document.getElementById('decision-options');
-  const count = container.querySelectorAll('.decision-option').length + 1;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.placeholder = `Option ${count}`;
-  input.className = 'decision-option w-full bg-gray-700 p-2 rounded';
-  container.appendChild(input);
-}
-
-function pushDecision() {
-  const title = document.getElementById('decision-title').value;
-  const optionInputs = document.querySelectorAll('.decision-option');
-  const options = Array.from(optionInputs)
-    .map((input, i) => ({ id: `opt${i + 1}`, text: input.value }))
-    .filter(opt => opt.text.trim());
-
-  if (!title || options.length < 2) {
-    alert('Please enter a title and at least 2 options');
-    return;
-  }
-
-  ws.send('decision:push', {
-    id: `decision_${Date.now()}`,
-    title,
-    options,
-  });
-}
-
-function clearDecision() {
-  ws.send('decision:clear');
-}
-
-// Puzzles
-let doorSequence = [];
-const symbolMap = {
-  sun: '☀', moon: '☽', star: '★', fire: '🔥', water: '💧', skull: '💀',
-  key: '🗝', eye: '👁', snake: '🐍', crown: '👑', sword: '⚔', shield: '🛡'
-};
-
-function initLockedDoorForm() {
-  document.querySelectorAll('.symbol-toggle').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const symbol = btn.dataset.symbol;
-      doorSequence.push(symbol);
-      updateDoorSequenceDisplay();
-    });
-  });
-
-  document.getElementById('clear-door-sequence')?.addEventListener('click', () => {
-    doorSequence = [];
-    updateDoorSequenceDisplay();
-  });
-}
-
-function updateDoorSequenceDisplay() {
-  const display = document.getElementById('door-sequence-display');
-  if (!display) return;
-
-  if (doorSequence.length === 0) {
-    display.innerHTML = '<span class="text-gray-500">Click symbols above...</span>';
-  } else {
-    display.innerHTML = doorSequence.map(s => `
-      <span class="text-3xl">${symbolMap[s]}</span>
-    `).join('');
-  }
-}
-
-function pushPuzzle() {
-  const type = document.getElementById('puzzle-type').value;
-  let data = {};
-
-  if (type === 'choice') {
-    data = {
-      question: document.getElementById('choice-question').value,
-      options: [
-        document.getElementById('choice-opt1').value,
-        document.getElementById('choice-opt2').value,
-        document.getElementById('choice-opt3').value,
-      ].filter(Boolean),
-      correctAnswer: parseInt(document.getElementById('choice-answer').value) - 1,
-    };
-  } else if (type === 'riddle') {
-    data = {
-      question: document.getElementById('riddle-question').value,
-      answer: document.getElementById('riddle-answer').value,
-      hint: document.getElementById('riddle-hint').value,
-    };
-  } else if (type === 'sequence') {
-    const items = document.getElementById('sequence-items').value.split('\n').filter(Boolean);
-    const order = document.getElementById('sequence-order').value.split(',').map(n => parseInt(n.trim()) - 1);
-    data = {
-      instruction: document.getElementById('sequence-instruction').value,
-      items,
-      correctOrder: order,
-    };
-  } else if (type === 'lockedDoor') {
-    if (doorSequence.length < 2) {
-      alert('Please select at least 2 symbols for the sequence');
-      return;
-    }
-    const uniqueSymbols = [...new Set(doorSequence)];
-    data = {
-      title: document.getElementById('door-title').value || 'Locked Door',
-      symbols: uniqueSymbols.map(s => ({ id: s, display: symbolMap[s] })),
-      correctSequence: doorSequence,
-    };
-  }
-
-  ws.send('puzzle:push', {
-    id: `puzzle_${Date.now()}`,
-    type,
-    data,
-  });
 }
