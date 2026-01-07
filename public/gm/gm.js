@@ -7,6 +7,7 @@
 import {
   updateSession, updateMode, updateFigures, updateDrawing,
   setMapImage, setFigures, setIsDrawing, setActivePing,
+  setSelectedFigureType, setSelectedPlacedFigure,
   ws, sessionId, gmToken, joinCode, mapImage, figures, elements, initElements,
   MODE, currentMode, viewport, MIN_ZOOM, MAX_ZOOM, brushSize, isRevealing, isDrawing,
   isPanning, lastPanX, lastPanY, hasPreview, selectedFigureType, selectedPlacedFigure,

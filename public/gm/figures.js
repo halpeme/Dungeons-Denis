@@ -5,8 +5,7 @@
 
 import {
     figures, setFigures, figureCanvas, figureCtx, selectedFigureType, setSelectedFigureType,
-    selectedPlacedFigure, setSelectedPlacedFigure, isFigurePaletteOpen, setIsFigurePaletteOpen,
-    ws
+    selectedPlacedFigure, setSelectedPlacedFigure, ws
 } from './state.js';
 import { applyViewportTransform } from './viewport.js';
 import { drawFigure as sharedDrawFigure, generateFigureId as sharedGenerateId, findFigureAtPosition as sharedFindFigure } from '../shared/figures.js';
@@ -140,24 +139,3 @@ export function sendFiguresUpdate() {
     if (ws) ws.send('figures:update', { figures });
 }
 
-/**
- * Toggle floating figure palette visibility
- */
-export function toggleFigurePalette() {
-    setIsFigurePaletteOpen(!isFigurePaletteOpen);
-
-    const expanded = document.getElementById('figure-palette-expanded');
-    const toggleBtn = document.getElementById('figure-palette-toggle');
-
-    if (expanded) {
-        if (isFigurePaletteOpen) {
-            expanded.classList.remove('hidden');
-        } else {
-            expanded.classList.add('hidden');
-        }
-    }
-
-    if (toggleBtn) {
-        toggleBtn.classList.toggle('active', isFigurePaletteOpen);
-    }
-}

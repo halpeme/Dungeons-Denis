@@ -8,7 +8,7 @@ import {
     viewport, brushSize, setBrushSizeValue, elements
 } from './state.js';
 import { setZoom, setRotation, resetViewport, updateCursor, updateZoomDisplay } from './viewport.js';
-import { toggleFigurePalette, toggleFigureSelection, clearAllFigures } from './figures.js';
+import { toggleFigureSelection, clearAllFigures } from './figures.js';
 import { clearFog, revealAll, confirmPreview, cancelPreview } from './fog.js';
 import { updateConnectionStatus as sharedUpdateStatus } from '../shared/connection-ui.js';
 
@@ -49,13 +49,8 @@ export function setMode(mode) {
 
     // Show/hide figure palette
     const figurePalette = document.getElementById('figure-palette-floating');
-    const figureExpanded = document.getElementById('figure-palette-expanded');
     if (figurePalette) {
         figurePalette.classList.toggle('hidden', mode !== MODE.FIGURE);
-    }
-    // Auto-expand palette when entering Figure mode
-    if (figureExpanded && mode === MODE.FIGURE) {
-        figureExpanded.classList.remove('hidden');
     }
 }
 
@@ -383,5 +378,4 @@ export function initEventListeners(handlers) {
     });
     document.getElementById('clear-figures-btn')?.addEventListener('click', (e) => { e.stopPropagation(); clearAllFigures(); });
     document.getElementById('clear-figures-btn-float')?.addEventListener('click', (e) => { e.stopPropagation(); clearAllFigures(); });
-    document.getElementById('figure-palette-toggle')?.addEventListener('click', toggleFigurePalette);
 }
