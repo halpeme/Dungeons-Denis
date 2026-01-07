@@ -544,10 +544,81 @@ function initInteractionListeners() {
     const currentTime = new Date().getTime();
     const tapLength = currentTime - lastTap;
     if (tapLength < 500 && tapLength > 0 && e.touches.length === 0) {
-      resetViewport();
+      // Check if it was a double tap or drag
+      if (!isDragging) {
+        // Send Ping on double tap/click
+        const touch = e.changedTouches[0];
+        handlePing(touch.clientX, touch.clientY);
+      }
       e.preventDefault();
     }
     lastTap = currentTime;
   });
+
+  // Mouse double click for desktop ping
+  canvas.addEventListener('dblclick', (e) => {
+    handlePing(e.clientX, e.clientY);
+  });
 }
+
+// === PING SYSTEM ===
+let lastPingTime = 0;
+const PING_COOLDOWN = 2000; // 2 seconds
+
+function handlePing(screenX, screenY) {
+  const now = Date.now();
+  if (now - lastPingTime < PING_COOLDOWN) {
+    return; // Rate limit
+  }
+
+  // Convert to world coordinates
+  const pt = screenToCanvas(screenX, screenY);
+  const worldX = (pt.x - viewport.x) / viewport.scale;
+  const worldY = (pt.y - viewport.y) / viewport.scale;
+
+  // Send to server
+  if (ws && sessionId) {
+    ws.send('map:ping', { x: worldX, y: worldY });
+    lastPingTime = now;
+
+    // Show local visual feedback (ripple)
+    showPingRipple(screenX, screenY);
+  }
+}
+
+function showPingRipple(x, y) {
+  const ripple = document.createElement('div');
+  ripple.className = 'ping-ripple';
+  ripple.style.left = `${x}px`;
+  ripple.style.top = `${y}px`;
+  document.body.appendChild(ripple);
+
+  // Animation handled by CSS
+  setTimeout(() => ripple.remove(), 1000);
+}
+
+// UI Controls
+function createUIControls() {
+  const container = document.createElement('div');
+  container.className = 'fixed bottom-4 right-4 flex gap-2 z-50';
+
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'bg-gray-800 text-amber-500 p-3 rounded-full shadow-lg border border-amber-900/50 hover:bg-gray-700 active:scale-95 transition-all';
+  resetBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+      <path d="M3 3v5h5"/>
+    </svg>
+  `;
+  resetBtn.title = 'Reset Zoom';
+  resetBtn.onclick = resetViewport;
+
+  container.appendChild(resetBtn);
+  document.body.appendChild(container);
+}
+
+// Initialize UI after load
+document.addEventListener('DOMContentLoaded', () => {
+  createUIControls();
+});
 

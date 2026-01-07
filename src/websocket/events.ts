@@ -92,6 +92,14 @@ export interface MapMovePartyMessage extends WSMessage {
   };
 }
 
+export interface MapPingMessage extends WSMessage {
+  type: 'map:ping';
+  payload: {
+    x: number;
+    y: number;
+  };
+}
+
 // Handout events
 export interface HandoutPushMessage extends WSMessage {
   type: 'handout:push';

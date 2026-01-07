@@ -87,6 +87,16 @@ function handleMessage(socket: WebSocket, state: ConnectionState, message: WSMes
       handlePuzzleSubmit(socket, state, message.payload as { puzzleId: string; answer: unknown });
       break;
 
+    case 'map:ping':
+      if (state.role !== 'table') {
+        return; // Only table can ping
+      }
+      // Relay to GM
+      if (state.sessionId) {
+        sessionManager.sendToGm(state.sessionId, message);
+      }
+      break;
+
     default:
       sendError(socket, 'UNKNOWN_EVENT', `Unknown event type: ${message.type}`);
   }

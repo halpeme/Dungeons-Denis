@@ -522,6 +522,28 @@ function initWebSocket() {
     }
   });
 
+  wsClient.on('map:ping', (data) => {
+    // data.payload = { x, y }
+    import('./state.js').then(({ setActivePing }) => {
+      setActivePing({
+        x: data.payload.x,
+        y: data.payload.y,
+        timestamp: Date.now()
+      });
+      renderAll();
+
+      // Auto-clear ping after animation (e.g. 5 seconds)
+      setTimeout(() => {
+        import('./state.js').then(state => {
+          if (state.activePing && Date.now() - state.activePing.timestamp > 4500) {
+            setActivePing(null);
+            renderAll();
+          }
+        });
+      }, 5000);
+    });
+  });
+
   wsClient.on('error', (data) => {
     console.error('Server error:', data);
     alert(`Error: ${data.message}`);

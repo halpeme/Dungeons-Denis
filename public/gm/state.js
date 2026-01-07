@@ -54,6 +54,7 @@ export let selectedPlacedFigure = null;
 export let lastFigureTapTime = 0;
 export const DOUBLE_TAP_THRESHOLD = 350;
 export let isFigurePaletteOpen = false;
+export let activePing = null; // { x, y, timestamp }
 
 // === STATE SETTERS (for mutable exports) ===
 export function setWs(value) { ws = value; }
@@ -87,6 +88,7 @@ export function setSelectedFigureType(value) { selectedFigureType = value; }
 export function setSelectedPlacedFigure(value) { selectedPlacedFigure = value; }
 export function setLastFigureTapTime(value) { lastFigureTapTime = value; }
 export function setIsFigurePaletteOpen(value) { isFigurePaletteOpen = value; }
+export function setActivePing(value) { activePing = value; }
 
 // === PRESET MAPS ===
 export const presetMaps = [

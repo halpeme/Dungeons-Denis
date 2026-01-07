@@ -139,3 +139,32 @@ body.cursor-hidden {
 #connection-indicator.reconnecting #status-dot {
   animation: pulse 1s infinite;
 }
+
+/* Ping Ripple */
+.ping-ripple {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.8);
+  border: 2px solid #fff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: ping-expand 1s ease-out forwards;
+  z-index: 1000;
+}
+
+@keyframes ping-expand {
+  0% {
+    width: 20px;
+    height: 20px;
+    opacity: 1;
+  }
+
+  100% {
+    width: 100px;
+    height: 100px;
+    opacity: 0;
+    border-width: 0;
+  }
+}

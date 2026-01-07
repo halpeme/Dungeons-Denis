@@ -10,7 +10,7 @@ import {
     setMapCanvas, setMapCtx, setFogCanvas, setFogCtx,
     setFigureCanvas, setFigureCtx, setPreviewCanvas, setPreviewCtx,
     setFogDataCanvas, setFogDataCtx, setPreviewDataCanvas, setPreviewDataCtx,
-    setMapImage, setHasPreview, figures
+    setMapImage, setHasPreview, figures, activePing
 } from './state.js';
 import { applyViewportTransform, updateCursor, setRenderAll, resetViewport } from './viewport.js';
 import { renderFiguresLayer, drawFigure } from './figures.js';
@@ -36,6 +36,49 @@ export function renderAll() {
 
     // Render preview
     renderPreviewLayer();
+
+    // Render ping
+    renderPingLayer();
+}
+
+/**
+ * Render ping layer
+ */
+export function renderPingLayer() {
+    if (!activePing || !mapCtx) return;
+
+    const age = Date.now() - activePing.timestamp;
+    const duration = 2000; // 2 seconds animation
+
+    if (age > duration) return;
+
+    const progress = age / duration;
+    const maxRadius = 100;
+    const currentRadius = 10 + (maxRadius * (1 - Math.pow(1 - progress, 3))); // Ease out
+    const opacity = 1 - progress;
+
+    mapCtx.save();
+    mapCtx.shadowBlur = 0;
+    mapCtx.globalAlpha = 1;
+
+    mapCtx.beginPath();
+    mapCtx.arc(activePing.x, activePing.y, currentRadius, 0, Math.PI * 2);
+    mapCtx.strokeStyle = `rgba(245, 158, 11, ${opacity})`;
+    mapCtx.lineWidth = 4;
+    mapCtx.stroke();
+
+    // Inner dot
+    mapCtx.beginPath();
+    mapCtx.arc(activePing.x, activePing.y, 5, 0, Math.PI * 2);
+    mapCtx.fillStyle = `rgba(245, 158, 11, ${opacity})`;
+    mapCtx.fill();
+
+    mapCtx.restore();
+
+    // Continue animation loop if active
+    if (age < duration) {
+        requestAnimationFrame(renderAll);
+    }
 }
 
 /**
