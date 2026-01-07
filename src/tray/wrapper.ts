@@ -166,6 +166,9 @@ class DungeonsTray {
     console.log('🏰 Dungeons & Denis Tray initialized');
     console.log(`   Host: http://${ip}:3001`);
     console.log('   Right-click the tray icon to control the server\n');
+
+    // Auto-start server as requested
+    this.startServer();
   }
 
   private handleMenuClick(action: { item: { title: string } }): void {
