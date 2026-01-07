@@ -465,8 +465,8 @@ function initWebSocket() {
 
   wsClient.on('connected', () => {
     updateConnectionStatus(true);
-    const saved = getSavedSession();
-    if (saved) wsClient.reconnectSession(saved.sessionId, saved.gmToken);
+    // Auto-create/reconnect to session (single-session mode)
+    wsClient.createSession();
   });
 
   wsClient.on('disconnected', () => updateConnectionStatus(false));

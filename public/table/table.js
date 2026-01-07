@@ -56,14 +56,8 @@ function initWebSocket() {
 
   ws.on('connected', () => {
     updateConnectionStatus(true);
-
-    // Check for join code in URL and auto-join
-    const params = new URLSearchParams(window.location.search);
-    const codeParam = params.get('code');
-    if (codeParam) {
-      elements.joinCodeInput.value = codeParam.toUpperCase();
-      joinSession();
-    }
+    // Auto-join the active session
+    ws.autoJoinSession();
   });
 
   ws.on('disconnected', () => {
@@ -175,31 +169,7 @@ function initWebSocket() {
 
 // Event Listeners
 function initEventListeners() {
-  // Join session
-  elements.joinBtn.addEventListener('click', joinSession);
-
-  elements.joinCodeInput.addEventListener('keyup', (e) => {
-    if (e.key === 'Enter') {
-      joinSession();
-    }
-  });
-
-  // Auto-uppercase join code
-  elements.joinCodeInput.addEventListener('input', (e) => {
-    e.target.value = e.target.value.toUpperCase();
-  });
-}
-
-function joinSession() {
-  const code = elements.joinCodeInput.value.trim().toUpperCase();
-  if (code.length !== 6) {
-    elements.joinError.textContent = 'Please enter a 6-character code';
-    elements.joinError.classList.remove('hidden');
-    return;
-  }
-
-  elements.joinError.classList.add('hidden');
-  ws.joinSession(code);
+  // No join button needed - auto-join on connect
 }
 
 // UI Updates

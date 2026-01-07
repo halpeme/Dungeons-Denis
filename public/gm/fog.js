@@ -123,6 +123,7 @@ export function revealAll() {
 export function sendFogUpdate() {
     if (!fogDataCanvas || !ws) return;
 
+    const fogData = fogDataCanvas.toDataURL('image/png');
     ws.send('map:fogUpdate', {
         fogMask: fogData,
     });

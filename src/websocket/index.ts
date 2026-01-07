@@ -54,6 +54,10 @@ function handleMessage(socket: WebSocket, state: ConnectionState, message: WSMes
       handleSessionJoin(socket, state, message.payload as { code: string });
       break;
 
+    case 'session:auto-join':
+      handleSessionAutoJoin(socket, state);
+      break;
+
     case 'session:reconnect':
       handleSessionReconnect(socket, state, message.payload as { sessionId: string; gmToken: string });
       break;
@@ -89,7 +93,8 @@ function handleMessage(socket: WebSocket, state: ConnectionState, message: WSMes
 }
 
 function handleSessionCreate(socket: WebSocket, state: ConnectionState) {
-  const { session, gmToken } = sessionManager.createSession();
+  // Single-session mode: get existing or create new
+  const { session, gmToken, isNew } = sessionManager.getOrCreateSession();
 
   state.sessionId = session.id;
   state.role = 'gm';
@@ -105,6 +110,38 @@ function handleSessionCreate(socket: WebSocket, state: ConnectionState) {
       gmToken: gmToken,
     },
   }));
+
+  // If reconnecting to existing session, send current state
+  if (!isNew) {
+    sendCurrentStateToGm(socket, session.id);
+  }
+}
+
+function handleSessionAutoJoin(socket: WebSocket, state: ConnectionState) {
+  // Table auto-join: connect to the active session
+  const session = sessionManager.getActiveSession();
+
+  if (!session) {
+    sendError(socket, 'NO_SESSION', 'No active session. Please wait for GM to start.');
+    return;
+  }
+
+  state.sessionId = session.id;
+  state.role = 'table';
+
+  sessionManager.addConnection(session.id, 'table', socket);
+
+  // Notify table of successful join
+  socket.send(JSON.stringify({
+    type: 'session:joined',
+    payload: { sessionId: session.id },
+  }));
+
+  // Notify GM that table connected
+  sessionManager.sendToGm(session.id, { type: 'table:connected' });
+
+  // Send current display state to table
+  sendCurrentState(socket, session.id);
 }
 
 function handleSessionJoin(socket: WebSocket, state: ConnectionState, payload: { code: string }) {

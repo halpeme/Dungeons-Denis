@@ -143,6 +143,10 @@ class WSClient {
     this.gmToken = gmToken;
     return this.send('session:reconnect', { sessionId, gmToken });
   }
+
+  autoJoinSession() {
+    return this.send('session:auto-join');
+  }
 }
 
 // Export for use in other scripts

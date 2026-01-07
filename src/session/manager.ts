@@ -193,6 +193,36 @@ export class SessionManager {
     }
   }
 
+  // Get or create the single active session (for single-session mode)
+  getOrCreateSession(): { session: Session; gmToken: string; isNew: boolean } {
+    // Try to get existing session first
+    const stmt = db.prepare('SELECT * FROM sessions ORDER BY updated_at DESC LIMIT 1');
+    const row = stmt.get() as SessionRow | undefined;
+
+    if (row) {
+      const session = this.rowToSession(row);
+      // Ensure connections map exists
+      if (!connections.has(session.id)) {
+        connections.set(session.id, []);
+      }
+      if (!mapData.has(session.id)) {
+        mapData.set(session.id, { mapImage: null, fogMask: null });
+      }
+      return { session, gmToken: row.gm_token, isNew: false };
+    }
+
+    // No session exists, create one
+    const { session, gmToken } = this.createSession();
+    return { session, gmToken, isNew: true };
+  }
+
+  // Get the active session (for table auto-join)
+  getActiveSession(): Session | null {
+    const stmt = db.prepare('SELECT * FROM sessions ORDER BY updated_at DESC LIMIT 1');
+    const row = stmt.get() as SessionRow | undefined;
+    return row ? this.rowToSession(row) : null;
+  }
+
   // Clean up old sessions
   cleanupOldSessions(): number {
     const cutoff = Date.now() - config.sessionTimeout;
