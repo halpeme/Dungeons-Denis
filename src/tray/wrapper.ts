@@ -168,7 +168,12 @@ class DungeonsTray {
     console.log('   Right-click the tray icon to control the server\n');
 
     // Auto-start server as requested
-    this.startServer();
+    // Wait a moment for Tray to initialize effectively (prevents race conditions with cleanup logic)
+    setTimeout(() => {
+      this.startServer().catch(err => {
+        console.error('Failed to auto-start server:', err);
+      });
+    }, 1500);
   }
 
   private handleMenuClick(action: { item: { title: string } }): void {
@@ -210,44 +215,50 @@ class DungeonsTray {
       const { exec } = require('child_process');
       // Find PID listing on port 3001
       exec(`netstat -ano | findstr :${PORT}`, (error: any, stdout: string) => {
-        if (error || !stdout) {
-          resolve();
-          return;
-        }
-
-        // Parse PID (last token of the line)
-        // TCP    0.0.0.0:3001           0.0.0.0:0              LISTENING       1234
-        const lines = stdout.trim().split('\n');
-        const pidsToKill = new Set<string>();
-
-        lines.forEach(line => {
-          if (line.includes('LISTENING')) {
-            const parts = line.trim().split(/\s+/);
-            const pid = parts[parts.length - 1];
-            if (pid && /^\d+$/.test(pid) && pid !== '0') {
-              pidsToKill.add(pid);
-            }
+        try {
+          if (error || !stdout) {
+            resolve();
+            return;
           }
-        });
 
-        if (pidsToKill.size === 0) {
-          resolve();
-          return;
-        }
+          // Parse PID (last token of the line)
+          // TCP    0.0.0.0:3001           0.0.0.0:0              LISTENING       1234
+          const lines = stdout.trim().split('\n');
+          const pidsToKill = new Set<string>();
 
-        console.log(`Found running instances on port ${PORT}, cleaning up...`);
-        this.appendLog(`[TRAY] Cleaning up ${pidsToKill.size} existing process(es) on port ${PORT}`);
-
-        let killed = 0;
-        pidsToKill.forEach(pid => {
-          exec(`taskkill /F /T /PID ${pid}`, () => {
-            killed++;
-            if (killed === pidsToKill.size) {
-              // Wait a moment for OS to release the port
-              setTimeout(resolve, 1000);
+          lines.forEach(line => {
+            if (line.includes('LISTENING')) {
+              const parts = line.trim().split(/\s+/);
+              const pid = parts[parts.length - 1];
+              if (pid && /^\d+$/.test(pid) && pid !== '0') {
+                pidsToKill.add(pid);
+              }
             }
           });
-        });
+
+          if (pidsToKill.size === 0) {
+            resolve();
+            return;
+          }
+
+          console.log(`Found running instances on port ${PORT}, cleaning up...`);
+          this.appendLog(`[TRAY] Cleaning up ${pidsToKill.size} existing process(es) on port ${PORT}`);
+
+          let killed = 0;
+          pidsToKill.forEach(pid => {
+            exec(`taskkill /F /T /PID ${pid}`, () => {
+              killed++;
+              if (killed === pidsToKill.size) {
+                // Wait a moment for OS to release the port
+                setTimeout(resolve, 1000);
+              }
+            });
+          });
+        } catch (err: any) {
+          console.error('Error during cleanup:', err);
+          this.appendLog(`[WARN] Cleanup failed: ${err.message}`);
+          resolve(); // Resolve anyway to allow server to try starting
+        }
       });
     });
   }
