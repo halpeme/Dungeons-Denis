@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
@@ -15,10 +16,11 @@ interface ServerState {
   running: boolean;
   logBuffer: string[];
   logFile: string;
+  localIP: string;
 }
 
 class DungeonsTray {
-  private tray: SysTray | null = null;
+  private tray: typeof SysTray | null = null;
   private server: ServerState;
   private readonly MAX_BUFFER_LINES = 1000;
   private readonly LOG_DIR: string;
@@ -32,6 +34,7 @@ class DungeonsTray {
       running: false,
       logBuffer: [],
       logFile: this.getCurrentLogFile(),
+      localIP: this.getLocalIPAddress(),
     };
 
     // Ensure logs directory exists
@@ -42,16 +45,42 @@ class DungeonsTray {
     this.initializeTray();
   }
 
+  private getLocalIPAddress(): string {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]!) {
+        // Skip internal (i.e. 127.0.0.1) and non-IPv4 addresses
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+    return 'localhost';
+  }
+
   private getCurrentLogFile(): string {
     const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     return path.join(this.LOG_DIR, `tray-${date}.log`);
   }
 
-  private initializeTray(): void {
+  private getIconBase64(): string {
+    // systray2 requires Base64-encoded icon data
     const iconPath = path.join(__dirname, 'icon.ico');
+    if (fs.existsSync(iconPath)) {
+      const iconData = fs.readFileSync(iconPath);
+      return iconData.toString('base64');
+    }
+    // Fallback: return empty string (will use default icon)
+    console.warn('Icon file not found:', iconPath);
+    return '';
+  }
+
+  private initializeTray(): void {
+    const iconBase64 = this.getIconBase64();
+    const ip = this.server.localIP;
 
     const menu = {
-      icon: iconPath,
+      icon: iconBase64,
       title: 'Dungeons & Denis',
       tooltip: 'Dungeons & Denis Server',
       items: [
@@ -101,14 +130,14 @@ class DungeonsTray {
           title: '---',
         },
         {
-          title: 'Open GM Controller',
-          tooltip: 'Open GM interface in browser',
+          title: `Open GM Controller (${ip})`,
+          tooltip: `Open http://${ip}:3001/gm`,
           checked: false,
           enabled: true,
         },
         {
-          title: 'Open Table Display',
-          tooltip: 'Open table display in browser',
+          title: `Open Table Display (${ip})`,
+          tooltip: `Open http://${ip}:3001/table`,
           checked: false,
           enabled: true,
         },
@@ -130,102 +159,205 @@ class DungeonsTray {
       copyDir: true,
     });
 
-    this.tray.onClick((action) => {
+    this.tray.onClick((action: { item: { title: string } }) => {
       this.handleMenuClick(action);
     });
 
     console.log('🏰 Dungeons & Denis Tray initialized');
+    console.log(`   Host: http://${ip}:3001`);
     console.log('   Right-click the tray icon to control the server\n');
   }
 
   private handleMenuClick(action: { item: { title: string } }): void {
     const title = action.item.title;
 
-    switch (title) {
-      case 'Start Server':
-        this.startServer();
-        break;
-      case 'Stop Server':
-        this.stopServer();
-        break;
-      case 'Restart Server':
-        this.restartServer();
-        break;
-      case 'View Logs':
-        this.viewLogs();
-        break;
-      case 'Clear Logs':
-        this.clearLogs();
-        break;
-      case 'Open GM Controller':
-        this.openURL('http://localhost:3001/gm');
-        break;
-      case 'Open Table Display':
-        this.openURL('http://localhost:3001/table');
-        break;
-      case 'Exit':
-        this.exit();
-        break;
+    const ip = this.server.localIP;
+
+    if (title === 'Start Server') {
+      this.startServer();
+    } else if (title === 'Stop Server') {
+      this.stopServer();
+    } else if (title === 'Restart Server') {
+      this.restartServer();
+    } else if (title === 'View Logs') {
+      this.viewLogs();
+    } else if (title === 'Clear Logs') {
+      this.clearLogs();
+    } else if (title.startsWith('Open GM Controller')) {
+      this.openURL(`http://${ip}:3001/gm`);
+    } else if (title.startsWith('Open Table Display')) {
+      this.openURL(`http://${ip}:3001/table`);
+    } else if (title === 'Exit') {
+      this.exit();
     }
   }
 
-  private startServer(): void {
+  private isProductionMode(): boolean {
+    // Check if we're running from a dist-release bundle (portable Node.js)
+    // In production, the structure is: dist-release/app/dist/tray/wrapper.js
+    // __dirname would be dist-release/app/dist/tray
+    const appDir = path.join(this.PROJECT_ROOT);
+    const parentDir = path.dirname(appDir);
+    return fs.existsSync(path.join(parentDir, 'node', 'node.exe'));
+  }
+
+  private async cleanupRunningInstance(): Promise<void> {
+    const PORT = 3001;
+    return new Promise((resolve) => {
+      const { exec } = require('child_process');
+      // Find PID listing on port 3001
+      exec(`netstat -ano | findstr :${PORT}`, (error: any, stdout: string) => {
+        if (error || !stdout) {
+          resolve();
+          return;
+        }
+
+        // Parse PID (last token of the line)
+        // TCP    0.0.0.0:3001           0.0.0.0:0              LISTENING       1234
+        const lines = stdout.trim().split('\n');
+        const pidsToKill = new Set<string>();
+
+        lines.forEach(line => {
+          if (line.includes('LISTENING')) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && /^\d+$/.test(pid) && pid !== '0') {
+              pidsToKill.add(pid);
+            }
+          }
+        });
+
+        if (pidsToKill.size === 0) {
+          resolve();
+          return;
+        }
+
+        console.log(`Found running instances on port ${PORT}, cleaning up...`);
+        this.appendLog(`[TRAY] Cleaning up ${pidsToKill.size} existing process(es) on port ${PORT}`);
+
+        let killed = 0;
+        pidsToKill.forEach(pid => {
+          exec(`taskkill /F /T /PID ${pid}`, () => {
+            killed++;
+            if (killed === pidsToKill.size) {
+              // Wait a moment for OS to release the port
+              setTimeout(resolve, 1000);
+            }
+          });
+        });
+      });
+    });
+  }
+
+  private async startServer(): Promise<void> {
     if (this.server.running) {
       console.log('Server is already running');
       return;
     }
 
-    console.log('Starting server...');
-    this.appendLog('[TRAY] Starting server in development mode...');
+    // Proactive cleanup as requested
+    await this.cleanupRunningInstance();
 
-    // Spawn server in dev mode (tsx watch)
-    const serverProcess = spawn('npx', ['tsx', 'watch', 'src/server.ts'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: this.PROJECT_ROOT,
-      shell: true,
-      windowsHide: true,
-    });
+    const isProduction = this.isProductionMode();
+    console.log(`Starting server in ${isProduction ? 'production' : 'development'} mode...`);
+    this.appendLog(`[TRAY] Starting server in ${isProduction ? 'production' : 'development'} mode...`);
 
-    this.server.process = serverProcess;
-    this.server.running = true;
+    let serverProcess;
 
-    // Capture stdout
-    serverProcess.stdout?.on('data', (data: Buffer) => {
-      const lines = data.toString().split('\n');
-      lines.forEach((line) => {
-        if (line.trim()) {
-          this.appendLog(line);
+    try {
+      if (isProduction) {
+        // In production, use the bundled node.exe to run compiled server.js
+        const nodeExe = path.join(this.PROJECT_ROOT, '..', 'node', 'node.exe');
+        const serverScript = path.join(this.PROJECT_ROOT, 'dist', 'server.js');
+
+        console.log(`Node exe: ${nodeExe}`);
+        console.log(`Server script: ${serverScript}`);
+        this.appendLog(`[TRAY] Node: ${nodeExe}`);
+        this.appendLog(`[TRAY] Script: ${serverScript}`);
+
+        if (!fs.existsSync(nodeExe)) {
+          this.appendLog(`[ERROR] node.exe not found at: ${nodeExe}`);
+          console.error('node.exe not found');
+          return;
         }
-      });
-    });
 
-    // Capture stderr
-    serverProcess.stderr?.on('data', (data: Buffer) => {
-      const lines = data.toString().split('\n');
-      lines.forEach((line) => {
-        if (line.trim()) {
-          this.appendLog(`[ERROR] ${line}`);
+        if (!fs.existsSync(serverScript)) {
+          this.appendLog(`[ERROR] server.js not found at: ${serverScript}`);
+          console.error('server.js not found');
+          return;
         }
-      });
-    });
 
-    // Handle process exit
-    serverProcess.on('exit', (code) => {
-      this.server.running = false;
-      this.server.process = null;
-
-      if (code !== 0 && code !== null) {
-        const msg = `[TRAY] Server crashed with exit code: ${code}`;
-        this.appendLog(msg);
-        console.error(msg);
+        serverProcess = spawn(nodeExe, [serverScript], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: this.PROJECT_ROOT,
+          windowsHide: true,
+          env: { ...process.env, NODE_ENV: 'production' }
+        });
       } else {
-        this.appendLog('[TRAY] Server stopped');
+        // In development, use tsx watch for hot reloading
+        serverProcess = spawn('npx', ['tsx', 'watch', 'src/server.ts'], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: this.PROJECT_ROOT,
+          shell: true,
+          windowsHide: true,
+        });
       }
 
-      this.updateMenu();
-    });
+      serverProcess.on('error', (err) => {
+        console.error('Failed to start server:', err);
+        this.appendLog(`[ERROR] Failed to start server: ${err.message}`);
+        this.server.running = false;
+        this.server.process = null;
+        this.updateMenu();
+      });
 
-    this.updateMenu();
+      this.server.process = serverProcess;
+      this.server.running = true;
+
+      // Capture stdout
+      serverProcess.stdout?.on('data', (data: Buffer) => {
+        const lines = data.toString().split('\n');
+        lines.forEach((line) => {
+          if (line.trim()) {
+            this.appendLog(line);
+          }
+        });
+      });
+
+      // Capture stderr
+      serverProcess.stderr?.on('data', (data: Buffer) => {
+        const lines = data.toString().split('\n');
+        lines.forEach((line) => {
+          if (line.trim()) {
+            this.appendLog(`[ERROR] ${line}`);
+          }
+        });
+      });
+
+      // Handle process exit
+      serverProcess.on('exit', (code) => {
+        this.server.running = false;
+        this.server.process = null;
+
+        if (code !== 0 && code !== null) {
+          const msg = `[TRAY] Server crashed with exit code: ${code}`;
+          this.appendLog(msg);
+          console.error(msg);
+        } else {
+          this.appendLog('[TRAY] Server stopped');
+        }
+
+        this.updateMenu();
+      });
+
+      this.updateMenu();
+    } catch (err: any) {
+      console.error('Failed to spawn server process:', err);
+      this.appendLog(`[ERROR] Failed to spawn server process: ${err.message}`);
+      this.server.running = false;
+      this.server.process = null;
+      this.updateMenu();
+    }
   }
 
   private async stopServer(): Promise<void> {
@@ -237,22 +369,40 @@ class DungeonsTray {
     console.log('Stopping server...');
     this.appendLog('[TRAY] Stopping server...');
 
+    const pid = this.server.process.pid;
+    if (!pid) return;
+
     return new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => {
-        // Force kill after 5 seconds
-        console.log('Server did not stop gracefully, forcing shutdown...');
-        this.server.process?.kill('SIGKILL');
-        resolve();
-      }, 5000);
+      // Use taskkill to kill the process tree (/T) forcefully (/F)
+      // This ensures all child processes (like node spawning another node) are killed
+      const killCommand = `taskkill /F /T /PID ${pid}`;
 
-      this.server.process!.once('exit', () => {
-        clearTimeout(timeout);
-        console.log('Server stopped');
-        resolve();
+      const { exec } = require('child_process');
+      exec(killCommand, (error: any) => {
+        if (error) {
+          // It might have already exited, or we don't have permission
+          // Fallback to regular kill
+          this.appendLog(`[WARN] taskkill failed: ${error.message}, trying process.kill`);
+          try {
+            this.server.process?.kill('SIGKILL');
+          } catch (e) {
+            // Ignore
+          }
+        } else {
+          this.appendLog('[TRAY] Server process tree terminated successfully');
+        }
+
+        // Wait a tiny bit to ensure it's gone
+        setTimeout(() => {
+          this.server.running = false;
+          this.server.process = null;
+          console.log('Server stopped');
+
+          // Re-enable start button
+          this.updateMenu();
+          resolve();
+        }, 500);
       });
-
-      // Send SIGTERM for graceful shutdown
-      this.server.process!.kill('SIGTERM');
     });
   }
 
@@ -331,88 +481,102 @@ class DungeonsTray {
   private updateMenu(): void {
     if (!this.tray) return;
 
-    const iconPath = path.join(__dirname, 'icon.ico');
+    // Menu item indices (0-based):
+    // 0: Status
+    // 1: ---
+    // 2: Start Server
+    // 3: Stop Server
+    // 4: Restart Server
+    // 5-11: Other items...
 
-    const menu = {
-      icon: iconPath,
-      title: 'Dungeons & Denis',
-      tooltip: this.server.running ? 'Server Running' : 'Server Stopped',
-      items: [
-        {
-          title: this.server.running ? '● Server Running' : '○ Server Stopped',
-          tooltip: 'Server status',
-          checked: false,
-          enabled: false,
-        },
-        {
-          title: '---',
-        },
-        {
-          title: 'Start Server',
-          tooltip: 'Start the Dungeons & Denis server',
-          checked: false,
-          enabled: !this.server.running,
-        },
-        {
-          title: 'Stop Server',
-          tooltip: 'Stop the server gracefully',
-          checked: false,
-          enabled: this.server.running,
-        },
-        {
-          title: 'Restart Server',
-          tooltip: 'Restart the server',
-          checked: false,
-          enabled: this.server.running,
-        },
-        {
-          title: '---',
-        },
-        {
-          title: 'View Logs',
-          tooltip: 'Open log file in Notepad',
-          checked: false,
-          enabled: true,
-        },
-        {
-          title: 'Clear Logs',
-          tooltip: 'Clear the current log file',
-          checked: false,
-          enabled: true,
-        },
-        {
-          title: '---',
-        },
-        {
-          title: 'Open GM Controller',
-          tooltip: 'Open GM interface in browser',
-          checked: false,
-          enabled: true,
-        },
-        {
-          title: 'Open Table Display',
-          tooltip: 'Open table display in browser',
-          checked: false,
-          enabled: true,
-        },
-        {
-          title: '---',
-        },
-        {
-          title: 'Exit',
-          tooltip: 'Stop server and quit',
-          checked: false,
-          enabled: true,
-        },
-      ],
-    };
+    // Update status text (item 0)
+    this.tray.sendAction({
+      type: 'update-item',
+      item: {
+        title: this.server.running ? '● Server Running' : '○ Server Stopped',
+        tooltip: 'Server status',
+        checked: false,
+        enabled: false,
+      },
+      seq_id: 0,
+    });
 
+    // Update Start Server (item 2)
+    this.tray.sendAction({
+      type: 'update-item',
+      item: {
+        title: 'Start Server',
+        tooltip: 'Start the Dungeons & Denis server',
+        checked: false,
+        enabled: !this.server.running,
+      },
+      seq_id: 2,
+    });
+
+    // Update Stop Server (item 3)
+    this.tray.sendAction({
+      type: 'update-item',
+      item: {
+        title: 'Stop Server',
+        tooltip: 'Stop the server gracefully',
+        checked: false,
+        enabled: this.server.running,
+      },
+      seq_id: 3,
+    });
+
+    // Update Restart Server (item 4)
+    this.tray.sendAction({
+      type: 'update-item',
+      item: {
+        title: 'Restart Server',
+        tooltip: 'Restart the server',
+        checked: false,
+        enabled: this.server.running,
+      },
+      seq_id: 4,
+    });
+
+    // Update tooltip
     this.tray.sendAction({
       type: 'update-menu',
-      menu,
+      menu: {
+        tooltip: this.server.running ? 'Server Running' : 'Server Stopped',
+      },
     });
   }
 }
 
 // Start the tray application
-new DungeonsTray();
+const app = new DungeonsTray();
+
+// Global error handlers to prevent silent crashes
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Log to file if possible, but we might lose context of the app instance
+  // So we just try to keep running or at least log to stderr which we might capture
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const logDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..', 'logs');
+    const logFile = path.join(logDir, 'crash.log');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(logFile, `[${new Date().toISOString()}] UNCAUGHT EXCEPTION: ${err.stack}\n`);
+  } catch (e) {
+    // Ignore logging error
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const logDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..', 'logs');
+    const logFile = path.join(logDir, 'crash.log');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(logFile, `[${new Date().toISOString()}] UNHANDLED REJECTION: ${reason}\n`);
+  } catch (e) {
+    // Ignore
+  }
+});

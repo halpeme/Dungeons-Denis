@@ -17,15 +17,18 @@
 
 ## Commands
 
-```bash
-npm run dev          # Start dev server (port 3001)
-npm run build        # Compile TypeScript
-npm run test         # Run tests
-npm run download-maps # Download Splittermond preset maps (requires poppler)
-npm run tray:dev     # Start tray app in dev mode
-npm run build:tray   # Build tray app
-npm run create-icon  # Generate icons
+npm run dev           # Start dev server (port 3001) - PRIMARY DEV COMMAND
+npm run tray:dev      # Start tray app in dev mode
+npm run build:dist    # Create Windows distribution (dist-release/) - ONLY for release
+npm run build         # Compile TypeScript
+npm run test          # Run tests
+npm run download-maps # Download Splittermond preset maps
 ```
+
+## Development Workflow
+
+- **Always use `npm run dev`** for local development.
+- Do **not** build the distribution (`npm run build:dist`) during development; it's slow and meant for final release only.
 
 ## Project Structure
 

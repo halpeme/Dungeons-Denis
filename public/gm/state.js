@@ -38,7 +38,7 @@ export const MAX_ZOOM = 3;
 export const ZOOM_STEP = 0.25;
 
 // === MODE STATE ===
-export const MODE = { ZOOM: 'zoom', DRAW: 'draw' };
+export const MODE = { ZOOM: 'zoom', DRAW: 'draw', FIGURE: 'figure' };
 export let currentMode = MODE.ZOOM;
 export let isSettingsModalOpen = false;
 export let isPanning = false;

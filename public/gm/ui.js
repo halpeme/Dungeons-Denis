@@ -12,18 +12,25 @@ import { toggleFigurePalette, toggleFigureSelection, clearAllFigures } from './f
 import { clearFog, revealAll, confirmPreview, cancelPreview } from './fog.js';
 
 /**
- * Set interaction mode (zoom or draw)
+ * Set interaction mode (zoom, draw, or figure)
  */
 export function setMode(mode) {
     setCurrentMode(mode);
 
     const zoomBtn = document.getElementById('mode-zoom-btn');
+    const figureBtn = document.getElementById('mode-figure-btn');
     const drawBtn = document.getElementById('mode-draw-btn');
 
+    // Update button styling for 3-way toggle
     if (zoomBtn) {
         zoomBtn.classList.toggle('active', mode === MODE.ZOOM);
         zoomBtn.classList.toggle('bg-amber-600', mode === MODE.ZOOM);
         zoomBtn.classList.toggle('bg-gray-700', mode !== MODE.ZOOM);
+    }
+    if (figureBtn) {
+        figureBtn.classList.toggle('active', mode === MODE.FIGURE);
+        figureBtn.classList.toggle('bg-amber-600', mode === MODE.FIGURE);
+        figureBtn.classList.toggle('bg-gray-700', mode !== MODE.FIGURE);
     }
     if (drawBtn) {
         drawBtn.classList.toggle('active', mode === MODE.DRAW);
@@ -36,11 +43,18 @@ export function setMode(mode) {
     // Show/hide reveal size controls
     const sizeControls = document.getElementById('reveal-size-controls');
     if (sizeControls) {
-        if (mode === MODE.DRAW) {
-            sizeControls.classList.remove('hidden');
-        } else {
-            sizeControls.classList.add('hidden');
-        }
+        sizeControls.classList.toggle('hidden', mode !== MODE.DRAW);
+    }
+
+    // Show/hide figure palette
+    const figurePalette = document.getElementById('figure-palette-floating');
+    const figureExpanded = document.getElementById('figure-palette-expanded');
+    if (figurePalette) {
+        figurePalette.classList.toggle('hidden', mode !== MODE.FIGURE);
+    }
+    // Auto-expand palette when entering Figure mode
+    if (figureExpanded && mode === MODE.FIGURE) {
+        figureExpanded.classList.remove('hidden');
     }
 }
 
@@ -314,6 +328,7 @@ export function initEventListeners(handlers) {
 
     // Mode toggle
     document.getElementById('mode-zoom-btn')?.addEventListener('click', () => setMode(MODE.ZOOM));
+    document.getElementById('mode-figure-btn')?.addEventListener('click', () => setMode(MODE.FIGURE));
     document.getElementById('mode-draw-btn')?.addEventListener('click', () => setMode(MODE.DRAW));
     document.getElementById('reset-zoom-btn')?.addEventListener('click', resetViewport);
 

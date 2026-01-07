@@ -16,7 +16,8 @@
     "tray": "node dist/tray/wrapper.js",
     "tray:dev": "tsx src/tray/wrapper.ts",
     "build:tray": "npm run build && node -e \"require('fs').cpSync('src/tray/icon.ico', 'dist/tray/icon.ico', {recursive: true})\"",
-    "create-icon": "node scripts/create-icon.js"
+    "create-icon": "node scripts/create-icon.js",
+    "build:dist": "node scripts/build-dist.js"
   },
   "keywords": [
     "dnd",

@@ -60,6 +60,24 @@ function initWebSocket() {
     ws.autoJoinSession();
   });
 
+  // Handle server errors (e.g. no session yet)
+  ws.on('error', (data) => {
+    if (data.code === 'NO_SESSION') {
+      // Update UI to show waiting state
+      const statusText = document.querySelector('#join-screen .animate-pulse p');
+      if (statusText) statusText.textContent = 'Waiting for GM to start session...';
+
+      // Retry after 2 seconds
+      setTimeout(() => {
+        if (ws && ws.connected && !sessionId) {
+          ws.autoJoinSession();
+        }
+      }, 2000);
+    } else {
+      console.error('Server error:', data);
+    }
+  });
+
   ws.on('disconnected', () => {
     updateConnectionStatus(false);
   });

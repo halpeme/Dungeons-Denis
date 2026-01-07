@@ -194,12 +194,22 @@ function startDrawing(e) {
 
   const pos = screenToCanvas(e.clientX, e.clientY);
 
+  // ZOOM mode: pan/zoom only (no figures, no fog)
   if (currentMode === MODE.ZOOM) {
-    // ... (existing zoom logic same as before) ...
+    setIsPanning(true);
+    setLastPanX(e.clientX);
+    setLastPanY(e.clientY);
+    updateCursor();
+    return;
+  }
+
+  // FIGURE mode: figure interactions only (no fog reveal)
+  if (currentMode === MODE.FIGURE) {
     const clickedFigure = findFigureAtPosition(pos);
     const now = Date.now();
 
     if (clickedFigure) {
+      // Double-tap to delete
       if (selectedPlacedFigure === clickedFigure.id && (now - lastFigureTapTime) < DOUBLE_TAP_THRESHOLD) {
         setFigures(figures.filter(f => f.id !== clickedFigure.id));
         setSelectedPlacedFigure(null);
@@ -208,6 +218,7 @@ function startDrawing(e) {
         sendFiguresUpdate();
         return;
       }
+      // Select figure
       setSelectedPlacedFigure(clickedFigure.id);
       setSelectedFigureType(null);
       clearPaletteSelection();
@@ -216,6 +227,7 @@ function startDrawing(e) {
       return;
     }
 
+    // Place new figure if type selected
     if (selectedFigureType) {
       const newFigure = {
         id: generateFigureId(),
@@ -233,6 +245,7 @@ function startDrawing(e) {
       return;
     }
 
+    // Move selected figure
     if (selectedPlacedFigure) {
       const fig = figures.find(f => f.id === selectedPlacedFigure);
       if (fig) {
@@ -244,16 +257,15 @@ function startDrawing(e) {
       return;
     }
 
-    setIsPanning(true);
-    setLastPanX(e.clientX);
-    setLastPanY(e.clientY);
-    updateCursor();
-    return;
+    return; // No action if no figure selected
   }
 
-  setIsDrawing(true);
-  dirtyRect = null; // Reset dirty rect
-  draw(e);
+  // DRAW mode: fog reveal only
+  if (currentMode === MODE.DRAW) {
+    setIsDrawing(true);
+    dirtyRect = null; // Reset dirty rect
+    draw(e);
+  }
 }
 
 function draw(e) {

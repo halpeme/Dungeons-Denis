@@ -2,7 +2,10 @@
 node_modules/
 
 # Build output
+# Build output
 dist/
+dist-release/
+.cache/
 
 # Database
 db/*.db
