@@ -45,7 +45,7 @@ export function renderAll() {
  * Render ping layer
  */
 export function renderPingLayer() {
-    if (!activePing || !mapCtx) return;
+    if (!activePing || !previewCtx) return;
 
     const age = Date.now() - activePing.timestamp;
     const duration = 2000; // 2 seconds animation
@@ -57,23 +57,23 @@ export function renderPingLayer() {
     const currentRadius = 10 + (maxRadius * (1 - Math.pow(1 - progress, 3))); // Ease out
     const opacity = 1 - progress;
 
-    mapCtx.save();
-    mapCtx.shadowBlur = 0;
-    mapCtx.globalAlpha = 1;
+    previewCtx.save();
+    previewCtx.shadowBlur = 0;
+    previewCtx.globalAlpha = 1;
 
-    mapCtx.beginPath();
-    mapCtx.arc(activePing.x, activePing.y, currentRadius, 0, Math.PI * 2);
-    mapCtx.strokeStyle = `rgba(245, 158, 11, ${opacity})`;
-    mapCtx.lineWidth = 4;
-    mapCtx.stroke();
+    previewCtx.beginPath();
+    previewCtx.arc(activePing.x, activePing.y, currentRadius, 0, Math.PI * 2);
+    previewCtx.strokeStyle = `rgba(245, 158, 11, ${opacity})`;
+    previewCtx.lineWidth = 4;
+    previewCtx.stroke();
 
     // Inner dot
-    mapCtx.beginPath();
-    mapCtx.arc(activePing.x, activePing.y, 5, 0, Math.PI * 2);
-    mapCtx.fillStyle = `rgba(245, 158, 11, ${opacity})`;
-    mapCtx.fill();
+    previewCtx.beginPath();
+    previewCtx.arc(activePing.x, activePing.y, 5, 0, Math.PI * 2);
+    previewCtx.fillStyle = `rgba(245, 158, 11, ${opacity})`;
+    previewCtx.fill();
 
-    mapCtx.restore();
+    previewCtx.restore();
 
     // Continue animation loop if active
     if (age < duration) {

@@ -563,7 +563,7 @@ function initInteractionListeners() {
 
 // === PING SYSTEM ===
 let lastPingTime = 0;
-const PING_COOLDOWN = 2000; // 2 seconds
+const PING_COOLDOWN = 500; // 0.5 seconds
 
 function handlePing(screenX, screenY) {
   const now = Date.now();
