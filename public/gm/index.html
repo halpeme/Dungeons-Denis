@@ -15,8 +15,11 @@
   <div id="status-bar" class="fixed top-0 left-0 right-0 bg-gray-800 p-2 flex justify-between items-center z-50 h-10">
     <span class="text-amber-400 font-bold">Dungeons & Denis</span>
     <div id="connection-status" class="flex items-center gap-2">
-      <span class="w-2 h-2 rounded-full bg-red-500" id="status-dot"></span>
-      <span id="status-text" class="text-sm">Disconnected</span>
+      <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" id="status-dot"></span>
+      <span id="status-text" class="text-sm">Connecting...</span>
+      <button id="retry-btn" class="hidden ml-2 px-2 py-1 text-xs bg-amber-600 hover:bg-amber-500 rounded font-bold">
+        Retry Now
+      </button>
     </div>
   </div>
 
@@ -315,8 +318,8 @@
     </div>
   </nav>
 
-  <script src="/shared/ws-client.js"></script>
-  <script type="module" src="/gm/gm.js?v=8"></script>
+  <script src="/shared/ws-client.js?v=5"></script>
+  <script type="module" src="/gm/gm.js?v=11"></script>
 </body>
 
 </html>

@@ -8,10 +8,11 @@ import {
   setWs, setSessionId, setGmToken, setJoinCode,
   setMapImage, setFigures, setIsDrawing, setIsPanning, setLastPanX, setLastPanY,
   setHasPreview, setSelectedFigureType, setSelectedPlacedFigure, setLastFigureTapTime,
+  setActivePing,
   ws, sessionId, gmToken, joinCode, mapImage, figures, elements, initElements,
   MODE, currentMode, viewport, MIN_ZOOM, MAX_ZOOM, brushSize, isRevealing, isDrawing,
   isPanning, lastPanX, lastPanY, hasPreview, selectedFigureType, selectedPlacedFigure,
-  lastFigureTapTime, DOUBLE_TAP_THRESHOLD, presetMaps,
+  lastFigureTapTime, DOUBLE_TAP_THRESHOLD, activePing, presetMaps,
   fogCanvas, fogDataCanvas, fogDataCtx, previewDataCanvas, previewDataCtx, mapCanvas
 } from './state.js';
 
@@ -123,6 +124,7 @@ function loadPresetMap(map) {
     clearFog();
     sendMapState(mapImage);
   };
+  img.dataset.originalPath = map.path;
   img.onerror = () => alert(`Failed to load map: ${map.name}\nRun 'npm run download-maps' to download preset maps.`);
   img.src = map.path;
 }
@@ -474,14 +476,24 @@ function setupCanvasInteraction() {
 function initWebSocket() {
   const wsClient = new WSClient();
   setWs(wsClient);
+  // Expose to window for beforeunload/pagehide cleanup handlers
+  window.wsClient = wsClient;
+
+  wsClient.on('connecting', () => {
+    updateConnectionStatus('connecting');
+  });
 
   wsClient.on('connected', () => {
-    updateConnectionStatus(true);
+    updateConnectionStatus('connected');
     // Auto-create/reconnect to session (single-session mode)
     wsClient.createSession();
   });
 
-  wsClient.on('disconnected', () => updateConnectionStatus(false));
+  wsClient.on('disconnected', () => updateConnectionStatus('disconnected'));
+
+  wsClient.on('reconnecting', (data) => {
+    updateConnectionStatus('reconnecting', data);
+  });
 
   wsClient.on('session:created', (data) => {
     setSessionId(data.sessionId);
@@ -525,29 +537,30 @@ function initWebSocket() {
   wsClient.on('map:ping', (data) => {
     console.log('[GM] Received map:ping', data);
     // data.payload = { x, y }
-    import('./state.js').then(({ setActivePing }) => {
-      setActivePing({
-        x: data.x,
-        y: data.y,
-        timestamp: Date.now()
-      });
-      renderAll();
-
-      // Auto-clear ping after animation (e.g. 5 seconds)
-      setTimeout(() => {
-        import('./state.js').then(state => {
-          if (state.activePing && Date.now() - state.activePing.timestamp > 4500) {
-            setActivePing(null);
-            renderAll();
-          }
-        });
-      }, 5000);
+    setActivePing({
+      x: data.x,
+      y: data.y,
+      timestamp: Date.now()
     });
+    renderAll();
+
+    // Auto-clear ping after animation (e.g. 5 seconds)
+    setTimeout(() => {
+      if (activePing && Date.now() - activePing.timestamp > 4500) {
+        setActivePing(null);
+        renderAll();
+      }
+    }, 5000);
   });
 
   wsClient.on('error', (data) => {
     console.error('Server error:', data);
     alert(`Error: ${data.message}`);
+  });
+
+  // Wire up retry button
+  document.getElementById('retry-btn')?.addEventListener('click', () => {
+    wsClient.retryNow();
   });
 
   wsClient.connect();

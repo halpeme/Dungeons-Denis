@@ -134,9 +134,12 @@ export class SessionManager {
 
   // Add connection to session
   addConnection(sessionId: string, role: 'gm' | 'table', socket: WebSocket): void {
-    const sessionConnections = connections.get(sessionId) || [];
+    let sessionConnections = connections.get(sessionId) || [];
+    console.log(`[SessionManager] addConnection: role=${role}, existing connections=${sessionConnections.length}`);
+
     sessionConnections.push({ sessionId, role, socket });
     connections.set(sessionId, sessionConnections);
+    console.log(`[SessionManager] addConnection: Added ${role} to session ${sessionId}. Total connections: ${sessionConnections.length}`);
   }
 
   // Remove connection from session
@@ -174,11 +177,21 @@ export class SessionManager {
     }
   }
 
-  // Send to GM
+  // Send to all connected GMs
   sendToGm(sessionId: string, message: unknown): void {
-    const gmConn = this.getGmConnection(sessionId);
-    if (gmConn && gmConn.socket.readyState === 1) {
-      gmConn.socket.send(JSON.stringify(message));
+    const connections = this.getConnections(sessionId).filter(c => c.role === 'gm');
+    const data = JSON.stringify(message);
+
+    let sentCount = 0;
+    for (const conn of connections) {
+      if (conn.socket.readyState === 1) {
+        conn.socket.send(data);
+        sentCount++;
+      }
+    }
+
+    if (sentCount === 0) {
+      console.log(`[SessionManager] Warning: message not sent to GM (no active GM connections for session ${sessionId})`);
     }
   }
 

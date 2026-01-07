@@ -57,15 +57,7 @@ export async function apiRoutes(fastify: FastifyInstance) {
     return { success: true };
   });
 
-  // Upload image (base64)
-  fastify.post<{ Body: { image: string } }>('/api/upload', async (request) => {
-    // For simplicity, we're storing base64 directly
-    // In production, you'd want to save to disk and return a URL
-    const { image } = request.body;
-    const id = `img_${Date.now()}`;
-    // TODO: Save to disk
-    return { id, url: image };
-  });
+
 
   // Session cleanup (cron-like endpoint)
   fastify.post('/api/cleanup', async () => {

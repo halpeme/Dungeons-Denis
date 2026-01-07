@@ -16,23 +16,26 @@ let fogCtx = null;          // Context for fog canvas
 // Figure state
 let figures = [];
 
-// DOM Elements
-const elements = {
-  statusDot: document.getElementById('status-dot'),
-  statusText: document.getElementById('status-text'),
-  joinScreen: document.getElementById('join-screen'),
-  mainDisplay: document.getElementById('main-display'),
-  joinCodeInput: document.getElementById('join-code-input'),
-  joinBtn: document.getElementById('join-btn'),
-  joinError: document.getElementById('join-error'),
-  mapCanvas: document.getElementById('map-canvas'),
-};
+// DOM Elements - initialized after DOM ready
+let elements = {};
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize DOM element references after DOM is ready
+  elements = {
+    statusDot: document.getElementById('status-dot'),
+    statusText: document.getElementById('status-text'),
+    joinScreen: document.getElementById('join-screen'),
+    mainDisplay: document.getElementById('main-display'),
+    joinCodeInput: document.getElementById('join-code-input'),
+    joinBtn: document.getElementById('join-btn'),
+    joinError: document.getElementById('join-error'),
+    mapCanvas: document.getElementById('map-canvas'),
+  };
+
   initWebSocket();
   initEventListeners();
-  initInteractionListeners(); // Add listeners
+  initInteractionListeners();
   resizeCanvas();
 });
 
@@ -53,11 +56,32 @@ function resizeCanvas() {
 // WebSocket Setup
 function initWebSocket() {
   ws = new WSClient();
+  // Expose to window for beforeunload/pagehide cleanup handlers
+  window.wsClient = ws;
+
+  // Safari fix: If stuck on "connecting" for 3 seconds, force reconnect
+  // This mimics Remote Mouse's approach that works reliably on Safari
+  setInterval(() => {
+    if (ws && !ws.connected && ws.pendingSocket) {
+      console.log('[SAFARI FIX] Stuck on connecting, forcing reconnect');
+      ws.pendingSocket.close();
+      ws.pendingSocket = null;
+      ws.connect().catch(() => {});
+    }
+  }, 3000);
+
+  ws.on('connecting', () => {
+    updateConnectionStatus('connecting');
+  });
 
   ws.on('connected', () => {
-    updateConnectionStatus(true);
+    updateConnectionStatus('connected');
     // Auto-join the active session
     ws.autoJoinSession();
+  });
+
+  ws.on('reconnecting', (data) => {
+    updateConnectionStatus('reconnecting', data);
   });
 
   // Handle server errors (e.g. no session yet)
@@ -78,8 +102,8 @@ function initWebSocket() {
     }
   });
 
-  ws.on('disconnected', () => {
-    updateConnectionStatus(false);
+  ws.on('disconnected', (data) => {
+    updateConnectionStatus('disconnected', data);
   });
 
   ws.on('session:joined', (data) => {
@@ -191,9 +215,35 @@ function initEventListeners() {
 }
 
 // UI Updates
-function updateConnectionStatus(connected) {
-  elements.statusDot.className = `w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`;
-  elements.statusText.textContent = connected ? 'Connected' : 'Disconnected';
+function updateConnectionStatus(status, data = {}) {
+  if (typeof status === 'boolean') {
+    // Legacy boolean support
+    elements.statusDot.className = `w-2 h-2 rounded-full ${status ? 'bg-green-500' : 'bg-red-500'}`;
+    elements.statusText.textContent = status ? 'Connected' : 'Disconnected';
+    return;
+  }
+
+  switch (status) {
+    case 'connected':
+      elements.statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
+      elements.statusText.textContent = 'Connected';
+      break;
+    case 'connecting':
+      elements.statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+      elements.statusText.textContent = 'Connecting...';
+      break;
+    case 'reconnecting':
+      const seconds = Math.ceil((data.remainingMs || 0) / 1000);
+      elements.statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+      elements.statusText.textContent = `Retry in ${seconds}s`;
+      break;
+    case 'disconnected':
+    default:
+      elements.statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+      const reason = data && data.code ? ` (${data.code})` : '';
+      elements.statusText.textContent = `Disconnected${reason}`;
+      break;
+  }
 }
 
 function showMainDisplay() {

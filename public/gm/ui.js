@@ -146,12 +146,74 @@ export function showTab(tabName) {
 /**
  * Update connection status indicator
  */
-export function updateConnectionStatus(connected) {
-    if (elements.statusDot) {
-        elements.statusDot.className = `w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`;
+export function updateConnectionStatus(status, data = {}) {
+    const retryBtn = document.getElementById('retry-btn');
+
+    if (typeof status === 'boolean') {
+        // Legacy boolean support
+        if (elements.statusDot) {
+            elements.statusDot.className = `w-2 h-2 rounded-full ${status ? 'bg-green-500' : 'bg-red-500'}`;
+        }
+        if (elements.statusText) {
+            elements.statusText.textContent = status ? 'Connected' : 'Disconnected';
+        }
+        if (retryBtn) {
+            retryBtn.classList.toggle('hidden', status);
+        }
+        return;
     }
-    if (elements.statusText) {
-        elements.statusText.textContent = connected ? 'Connected' : 'Disconnected';
+
+    // New status string support
+    switch (status) {
+        case 'connected':
+            if (elements.statusDot) {
+                elements.statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
+            }
+            if (elements.statusText) {
+                elements.statusText.textContent = 'Connected';
+            }
+            if (retryBtn) {
+                retryBtn.classList.add('hidden');
+            }
+            break;
+
+        case 'connecting':
+            if (elements.statusDot) {
+                elements.statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+            }
+            if (elements.statusText) {
+                elements.statusText.textContent = 'Connecting...';
+            }
+            if (retryBtn) {
+                retryBtn.classList.add('hidden');
+            }
+            break;
+
+        case 'reconnecting':
+            const seconds = Math.ceil((data.remainingMs || 0) / 1000);
+            if (elements.statusDot) {
+                elements.statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+            }
+            if (elements.statusText) {
+                elements.statusText.textContent = `Retry in ${seconds}s`;
+            }
+            if (retryBtn) {
+                retryBtn.classList.remove('hidden');
+            }
+            break;
+
+        case 'disconnected':
+        default:
+            if (elements.statusDot) {
+                elements.statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
+            }
+            if (elements.statusText) {
+                elements.statusText.textContent = 'Disconnected';
+            }
+            if (retryBtn) {
+                retryBtn.classList.remove('hidden');
+            }
+            break;
     }
 }
 

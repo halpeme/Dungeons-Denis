@@ -1,7 +1,11 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
+import fastifyMultipart from '@fastify/multipart';
 import path from 'path';
+import fs from 'fs';
+import { pipeline } from 'stream/promises';
+import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { initializeSchema } from './db/schema.js';
@@ -58,20 +62,66 @@ async function start() {
   // Store for graceful shutdown
   serverInstance = fastify;
 
-  // Register WebSocket plugin
-  await fastify.register(fastifyWebsocket);
+  // Global request logging
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.url.startsWith('/ws')) {
+      console.log(`[HTTP] Incoming request: ${request.method} ${request.url} from ${request.ip}`);
+      console.log(`[HTTP] Headers: ${JSON.stringify(request.headers, null, 2)}`);
+    }
+  });
 
-  // Register static file serving
+  // Register WebSocket plugin
+  // Disable perMessageDeflate for Safari 26 compatibility
+  await fastify.register(fastifyWebsocket, {
+    options: {
+      perMessageDeflate: false,
+      clientTracking: true,
+    }
+  });
+
+  // Register multipart support for file uploads
+  await fastify.register(fastifyMultipart);
+
+  // Upload endpoint
+  fastify.post('/api/upload', async (req, reply) => {
+    const data = await req.file();
+    if (!data) {
+      return reply.code(400).send({ error: 'No file uploaded' });
+    }
+
+    const fileId = randomUUID();
+    const ext = path.extname(data.filename) || '.png';
+    const filename = `${fileId}${ext}`;
+    // Ensure uploads directory exists
+    const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const uploadPath = path.join(uploadsDir, filename);
+
+    await pipeline(data.file, fs.createWriteStream(uploadPath));
+
+    return { url: `/uploads/${filename}` };
+  });
+
+  // Setup WebSocket handlers (Must be before static files to ensure Upgrade request is handled correctly)
+  await setupWebSocket(fastify);
+
+  // Register static file serving (disable caching for development)
   await fastify.register(fastifyStatic, {
     root: path.join(__dirname, '..', 'public'),
     prefix: '/',
+    cacheControl: false,
+    etag: false,
+    lastModified: false,
   });
 
   // Register API routes
   await fastify.register(apiRoutes);
 
   // Setup WebSocket handlers
-  await setupWebSocket(fastify);
+  // await setupWebSocket(fastify); // moved up
 
   // Serve index.html for root
   fastify.get('/', async (request, reply) => {

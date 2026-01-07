@@ -7,39 +7,95 @@ interface ConnectionState {
   sessionId: string | null;
   role: 'gm' | 'table' | null;
   gmToken: string | null;
+  isAlive: boolean;
 }
 
 export async function setupWebSocket(fastify: FastifyInstance) {
-  fastify.get('/ws', { websocket: true }, (socket: WebSocket) => {
+  fastify.get('/ws', { websocket: true }, (socket: WebSocket, req) => {
+    console.log(`[WS] New connection established from ${req.ip}`);
+    console.log(`[WS] Headers: ${JSON.stringify(req.headers)}`);
+
     const state: ConnectionState = {
       sessionId: null,
       role: null,
       gmToken: null,
+      isAlive: true,
     };
+
+    socket.on('pong', () => {
+      state.isAlive = true;
+    });
 
     socket.on('message', (data: Buffer) => {
       try {
         const message = JSON.parse(data.toString()) as WSMessage;
+        console.log('[WS] Received message:', message.type);
         handleMessage(socket, state, message);
       } catch (err) {
         sendError(socket, 'INVALID_MESSAGE', 'Invalid JSON message');
       }
     });
 
-    socket.on('close', () => {
+    socket.on('close', (code: number, reason: Buffer) => {
+      console.log(`[WS] Connection closed: code=${code}, reason=${reason.toString()}, role=${state.role}`);
       if (state.sessionId) {
         sessionManager.removeConnection(state.sessionId, socket);
 
-        // Notify GM if table disconnected
+        // Notify GM if table disconnected - BUT only if no other table connections exist
         if (state.role === 'table') {
-          sessionManager.sendToGm(state.sessionId, { type: 'table:disconnected' });
+          const tableConns = sessionManager.getTableConnections(state.sessionId);
+          if (tableConns.length === 0) {
+            sessionManager.sendToGm(state.sessionId, { type: 'table:disconnected' });
+          } else {
+            console.log(`[WS] Table disconnected, but ${tableConns.length} active connection(s) remain. Not notifying GM.`);
+          }
         }
       }
     });
 
     socket.on('error', (err: Error) => {
-      console.error('WebSocket error:', err);
+      console.error('[WS] WebSocket error:', err);
     });
+  });
+
+  // Setup heartbeat interval with proper stale connection detection
+  // Use a WeakMap to track connection state without memory leaks
+  const connectionState = new WeakMap<WebSocket, { isAlive: boolean }>();
+
+  const interval = setInterval(() => {
+    fastify.websocketServer.clients.forEach((client: any) => {
+      if (client.readyState === 1) { // OPEN
+        const state = connectionState.get(client);
+
+        // If we haven't heard back from the last ping, terminate the connection
+        if (state && state.isAlive === false) {
+          console.log('[WS] Terminating stale connection (no pong received)');
+          return client.terminate();
+        }
+
+        // Mark as not alive and send ping
+        // Will be set back to true when pong is received
+        connectionState.set(client, { isAlive: false });
+        client.ping();
+      }
+    });
+  }, 30000);
+
+  // Track pong responses
+  fastify.websocketServer.on('connection', (client: any) => {
+    connectionState.set(client, { isAlive: true });
+
+    client.on('pong', () => {
+      const state = connectionState.get(client);
+      if (state) {
+        state.isAlive = true;
+      }
+    });
+  });
+
+  fastify.addHook('onClose', (instance, done) => {
+    clearInterval(interval);
+    done();
   });
 }
 
@@ -100,14 +156,21 @@ function handleMessage(socket: WebSocket, state: ConnectionState, message: WSMes
       }
       break;
 
+    // Client heartbeat ping (Safari keep-alive) - just ignore, no response needed
+    case 'ping':
+      break;
+
     default:
       sendError(socket, 'UNKNOWN_EVENT', `Unknown event type: ${message.type}`);
   }
 }
 
 function handleSessionCreate(socket: WebSocket, state: ConnectionState) {
+  console.log('[WS] handleSessionCreate called');
+
   // Single-session mode: get existing or create new
   const { session, gmToken, isNew } = sessionManager.getOrCreateSession();
+  console.log(`[WS] Got session: id=${session.id}, isNew=${isNew}`);
 
   state.sessionId = session.id;
   state.role = 'gm';
@@ -131,8 +194,11 @@ function handleSessionCreate(socket: WebSocket, state: ConnectionState) {
 }
 
 function handleSessionAutoJoin(socket: WebSocket, state: ConnectionState) {
+  console.log('[WS] handleSessionAutoJoin called');
+
   // Table auto-join: connect to the active session
   const session = sessionManager.getActiveSession();
+  console.log(`[WS] Active session: ${session ? session.id : 'NONE'}`);
 
   if (!session) {
     sendError(socket, 'NO_SESSION', 'No active session. Please wait for GM to start.');

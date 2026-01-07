@@ -4,7 +4,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Prevent Safari caching issues (from Remote Mouse) -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Table Display - Dungeons & Denis</title>
+  <!-- Prevent Safari bfcache issues -->
+  <script>
+    window.addEventListener('pageshow', function(e) {
+      if (e.persisted) { location.reload(); }
+    });
+    if (window.wsClient) {
+      try { window.wsClient.socket && window.wsClient.socket.close(); } catch(e) {}
+      window.wsClient = null;
+    }
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/table/table.css">
 </head>
@@ -13,8 +27,8 @@
   <!-- Connection Status (subtle) -->
   <div id="connection-indicator" class="fixed top-4 right-4 z-50">
     <div class="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-1 rounded-full">
-      <span id="status-dot" class="w-2 h-2 rounded-full bg-red-500"></span>
-      <span id="status-text" class="text-xs text-gray-400">Disconnected</span>
+      <span id="status-dot" class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+      <span id="status-text" class="text-xs text-gray-400">Connecting...</span>
     </div>
   </div>
 
@@ -49,8 +63,8 @@
 
   </div>
 
-  <script src="/shared/ws-client.js?v=2"></script>
-  <script src="/table/table.js?v=2"></script>
+  <script src="/shared/ws-client.js?v=7"></script>
+  <script src="/table/table.js?v=7"></script>
 </body>
 
 </html>

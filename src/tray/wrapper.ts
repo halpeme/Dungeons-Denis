@@ -90,9 +90,7 @@ class DungeonsTray {
           checked: false,
           enabled: false,
         },
-        {
-          title: '---',
-        },
+        SysTray.separator,
         {
           title: 'Start Server',
           tooltip: 'Start the Dungeons & Denis server',
@@ -111,9 +109,7 @@ class DungeonsTray {
           checked: false,
           enabled: this.server.running,
         },
-        {
-          title: '---',
-        },
+        SysTray.separator,
         {
           title: 'View Logs',
           tooltip: 'Open log file in Notepad',
@@ -126,9 +122,7 @@ class DungeonsTray {
           checked: false,
           enabled: true,
         },
-        {
-          title: '---',
-        },
+        SysTray.separator,
         {
           title: `Open GM Controller (${ip})`,
           tooltip: `Open http://${ip}:3001/gm`,
@@ -141,9 +135,7 @@ class DungeonsTray {
           checked: false,
           enabled: true,
         },
-        {
-          title: '---',
-        },
+        SysTray.separator,
         {
           title: 'Exit',
           tooltip: 'Stop server and quit',
@@ -338,6 +330,7 @@ class DungeonsTray {
         const lines = data.toString().split('\n');
         lines.forEach((line) => {
           if (line.trim()) {
+            console.log(line.trim()); // Mirror to console
             this.appendLog(line);
           }
         });
@@ -348,6 +341,7 @@ class DungeonsTray {
         const lines = data.toString().split('\n');
         lines.forEach((line) => {
           if (line.trim()) {
+            console.error(line.trim()); // Mirror to console
             this.appendLog(`[ERROR] ${line}`);
           }
         });
