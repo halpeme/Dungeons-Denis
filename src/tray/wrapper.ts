@@ -227,10 +227,15 @@ class DungeonsTray {
           const pidsToKill = new Set<string>();
 
           lines.forEach(line => {
+            // Line format: TCP    0.0.0.0:3001           0.0.0.0:0              LISTENING       1234
             if (line.includes('LISTENING')) {
               const parts = line.trim().split(/\s+/);
+              // parts[1] is Local Address (e.g., 0.0.0.0:3001 or [::]:3001)
+              const localAddress = parts[1];
               const pid = parts[parts.length - 1];
-              if (pid && /^\d+$/.test(pid) && pid !== '0') {
+
+              // Strict check: Must strictly end with :3001
+              if (localAddress && localAddress.endsWith(`:${PORT}`) && pid && /^\d+$/.test(pid) && pid !== '0') {
                 pidsToKill.add(pid);
               }
             }
