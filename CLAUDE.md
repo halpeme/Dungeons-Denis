@@ -57,17 +57,22 @@ scripts/
 
 ## Critical Warnings
 
-### DO NOT use `taskkill` to kill Node processes broadly
-Using `taskkill /F /IM node.exe` or similar commands will kill ALL Node processes on the system, including Claude Code itself, causing a crash.
+### DO NOT use `taskkill` or `Stop-Process` to kill Node processes broadly
+Using `taskkill /F /IM node.exe` or `Stop-Process -Name node` will kill **ALL** Node processes on the system.
 
-**Safe alternatives:**
-1. Use `Ctrl+C` in the terminal running the process
-2. Kill specific PIDs only: `taskkill /F /PID <specific-pid>`
-3. Let the user handle process termination manually
+**Known Consequence:**
+- Kills **Remote Mouse** server (and likely other Electron/Node-based tools).
+- Kills Claude Code itself.
+
+**Safe alternatives (Manual):**
+1. Use `Ctrl+C` in the terminal.
+2. Kill specific PIDs: `taskkill /F /PID <pid>`
+3. Relies on the **App's Internal Cleanup**: The app (`src/tray/wrapper.ts`) safely cleans up port 3001 only by checking strict socket addresses. It is safe to run.
 
 **Never run:**
-- `taskkill /F /IM node.exe` (kills ALL node processes)
-- `taskkill /F /IM cmd.exe` (may kill Claude Code's shell)
+- `taskkill /F /IM node.exe`
+- `Stop-Process -Name node`
+- `taskkill /F /IM cmd.exe`
 
 ## Git Repository
 
