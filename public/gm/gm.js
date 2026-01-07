@@ -5,10 +5,8 @@
 
 // === IMPORTS ===
 import {
-  setWs, setSessionId, setGmToken, setJoinCode,
-  setMapImage, setFigures, setIsDrawing, setIsPanning, setLastPanX, setLastPanY,
-  setHasPreview, setSelectedFigureType, setSelectedPlacedFigure, setLastFigureTapTime,
-  setActivePing,
+  updateSession, updateMode, updateFigures, updateDrawing,
+  setMapImage, setFigures, setIsDrawing, setActivePing,
   ws, sessionId, gmToken, joinCode, mapImage, figures, elements, initElements,
   MODE, currentMode, viewport, MIN_ZOOM, MAX_ZOOM, brushSize, isRevealing, isDrawing,
   isPanning, lastPanX, lastPanY, hasPreview, selectedFigureType, selectedPlacedFigure,
@@ -200,9 +198,7 @@ function startDrawing(e) {
 
   // ZOOM mode: pan/zoom only (no figures, no fog)
   if (currentMode === MODE.ZOOM) {
-    setIsPanning(true);
-    setLastPanX(e.clientX);
-    setLastPanY(e.clientY);
+    updateMode({ isPanning: true, lastPanX: e.clientX, lastPanY: e.clientY });
     updateCursor();
     return;
   }
@@ -215,18 +211,22 @@ function startDrawing(e) {
     if (clickedFigure) {
       // Double-tap to delete
       if (selectedPlacedFigure === clickedFigure.id && (now - lastFigureTapTime) < DOUBLE_TAP_THRESHOLD) {
-        setFigures(figures.filter(f => f.id !== clickedFigure.id));
-        setSelectedPlacedFigure(null);
-        setLastFigureTapTime(0);
+        updateFigures({
+          figures: figures.filter(f => f.id !== clickedFigure.id),
+          selectedPlacedFigure: null,
+          lastFigureTapTime: 0
+        });
         renderFigures();
         sendFiguresUpdate();
         return;
       }
       // Select figure
-      setSelectedPlacedFigure(clickedFigure.id);
-      setSelectedFigureType(null);
+      updateFigures({
+        selectedPlacedFigure: clickedFigure.id,
+        selectedFigureType: null,
+        lastFigureTapTime: now
+      });
       clearPaletteSelection();
-      setLastFigureTapTime(now);
       renderFigures();
       return;
     }
@@ -284,8 +284,7 @@ function draw(e) {
 
     viewport.x += dx;
     viewport.y += dy;
-    setLastPanX(e.clientX);
-    setLastPanY(e.clientY);
+    updateMode({ lastPanX: e.clientX, lastPanY: e.clientY });
     renderAll();
     return;
   }
@@ -301,7 +300,7 @@ function draw(e) {
     previewDataCtx.arc(pos.x, pos.y, brushRadius, 0, Math.PI * 2);
     previewDataCtx.fill();
     renderPreviewLayer();
-    setHasPreview(true);
+    updateDrawing({ hasPreview: true });
     showPreviewActions();
   } else {
     fogDataCtx.globalCompositeOperation = 'source-over';
@@ -318,7 +317,7 @@ function draw(e) {
 
 function stopDrawing(e) {
   if (isPanning) {
-    setIsPanning(false);
+    updateMode({ isPanning: false });
     updateCursor();
     updateZoomDisplay();
     return;
@@ -369,7 +368,7 @@ function setupCanvasInteraction() {
 
   fogCanvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
-      setIsPanning(false);
+      updateMode({ isPanning: false });
       // Only enable pinch in ZOOM mode
       isPinchActive = currentMode === MODE.ZOOM;
       if (!isPinchActive) return;
@@ -429,7 +428,7 @@ function setupCanvasInteraction() {
 // === WEBSOCKET SETUP ===
 function initWebSocket() {
   const wsClient = new WSClient();
-  setWs(wsClient);
+  updateSession({ ws: wsClient });
   // Expose to window for beforeunload/pagehide cleanup handlers
   window.wsClient = wsClient;
 
@@ -450,17 +449,21 @@ function initWebSocket() {
   });
 
   wsClient.on('session:created', (data) => {
-    setSessionId(data.sessionId);
-    setGmToken(data.gmToken);
-    setJoinCode(data.joinCode);
+    updateSession({
+      sessionId: data.sessionId,
+      gmToken: data.gmToken,
+      joinCode: data.joinCode
+    });
     saveSession();
     showJoinCode(data.joinCode);
     showControlPanel();
   });
 
   wsClient.on('session:reconnected', (data) => {
-    setSessionId(data.sessionId);
-    setJoinCode(data.joinCode);
+    updateSession({
+      sessionId: data.sessionId,
+      joinCode: data.joinCode
+    });
     showJoinCode(data.joinCode);
     showControlPanel();
   });

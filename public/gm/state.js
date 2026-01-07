@@ -56,7 +56,56 @@ export const DOUBLE_TAP_THRESHOLD = 350;
 export let isFigurePaletteOpen = false;
 export let activePing = null; // { x, y, timestamp }
 
-// === STATE SETTERS (for mutable exports) ===
+// === BATCH STATE UPDATERS ===
+// Use these for updating multiple related values at once
+
+export function updateSession(updates) {
+    if ('ws' in updates) ws = updates.ws;
+    if ('sessionId' in updates) sessionId = updates.sessionId;
+    if ('gmToken' in updates) gmToken = updates.gmToken;
+    if ('joinCode' in updates) joinCode = updates.joinCode;
+}
+
+export function updateCanvases(updates) {
+    if ('mapCanvas' in updates) mapCanvas = updates.mapCanvas;
+    if ('mapCtx' in updates) mapCtx = updates.mapCtx;
+    if ('fogCanvas' in updates) fogCanvas = updates.fogCanvas;
+    if ('fogCtx' in updates) fogCtx = updates.fogCtx;
+    if ('fogDataCanvas' in updates) fogDataCanvas = updates.fogDataCanvas;
+    if ('fogDataCtx' in updates) fogDataCtx = updates.fogDataCtx;
+    if ('previewCanvas' in updates) previewCanvas = updates.previewCanvas;
+    if ('previewCtx' in updates) previewCtx = updates.previewCtx;
+    if ('previewDataCanvas' in updates) previewDataCanvas = updates.previewDataCanvas;
+    if ('previewDataCtx' in updates) previewDataCtx = updates.previewDataCtx;
+    if ('figureCanvas' in updates) figureCanvas = updates.figureCanvas;
+    if ('figureCtx' in updates) figureCtx = updates.figureCtx;
+}
+
+export function updateDrawing(updates) {
+    if ('brushSize' in updates) brushSize = updates.brushSize;
+    if ('isRevealing' in updates) isRevealing = updates.isRevealing;
+    if ('isDrawing' in updates) isDrawing = updates.isDrawing;
+    if ('hasPreview' in updates) hasPreview = updates.hasPreview;
+}
+
+export function updateMode(updates) {
+    if ('currentMode' in updates) currentMode = updates.currentMode;
+    if ('isSettingsModalOpen' in updates) isSettingsModalOpen = updates.isSettingsModalOpen;
+    if ('isPanning' in updates) isPanning = updates.isPanning;
+    if ('lastPanX' in updates) lastPanX = updates.lastPanX;
+    if ('lastPanY' in updates) lastPanY = updates.lastPanY;
+}
+
+export function updateFigures(updates) {
+    if ('figures' in updates) figures = updates.figures;
+    if ('selectedFigureType' in updates) selectedFigureType = updates.selectedFigureType;
+    if ('selectedPlacedFigure' in updates) selectedPlacedFigure = updates.selectedPlacedFigure;
+    if ('lastFigureTapTime' in updates) lastFigureTapTime = updates.lastFigureTapTime;
+    if ('isFigurePaletteOpen' in updates) isFigurePaletteOpen = updates.isFigurePaletteOpen;
+    if ('activePing' in updates) activePing = updates.activePing;
+}
+
+// === INDIVIDUAL SETTERS (kept for backward compatibility) ===
 export function setWs(value) { ws = value; }
 export function setSessionId(value) { sessionId = value; }
 export function setGmToken(value) { gmToken = value; }

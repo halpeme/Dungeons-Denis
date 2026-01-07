@@ -7,10 +7,8 @@ import {
     mapCanvas, mapCtx, fogCanvas, fogCtx, figureCanvas, figureCtx,
     previewCanvas, previewCtx, fogDataCanvas, fogDataCtx,
     previewDataCanvas, previewDataCtx, mapImage, viewport, hasPreview,
-    setMapCanvas, setMapCtx, setFogCanvas, setFogCtx,
-    setFigureCanvas, setFigureCtx, setPreviewCanvas, setPreviewCtx,
-    setFogDataCanvas, setFogDataCtx, setPreviewDataCanvas, setPreviewDataCtx,
-    setMapImage, setHasPreview, figures, activePing
+    updateCanvases, updateDrawing,
+    setMapImage, figures, activePing
 } from './state.js';
 import { applyViewportTransform, updateCursor, setRenderAll, resetViewport } from './viewport.js';
 import { renderFiguresLayer, drawFigure } from './figures.js';
@@ -122,21 +120,26 @@ export function renderPreviewLayer() {
  * Initialize map canvas references
  */
 export function initMapCanvas() {
-    setMapCanvas(document.getElementById('map-canvas'));
-    setFigureCanvas(document.getElementById('figure-canvas'));
-    setFogCanvas(document.getElementById('fog-canvas'));
-    setPreviewCanvas(document.getElementById('preview-canvas'));
+    const map = document.getElementById('map-canvas');
+    const figure = document.getElementById('figure-canvas');
+    const fog = document.getElementById('fog-canvas');
+    const preview = document.getElementById('preview-canvas');
 
-    if (!mapCanvas || !fogCanvas) return;
+    updateCanvases({
+        mapCanvas: map,
+        figureCanvas: figure,
+        fogCanvas: fog,
+        previewCanvas: preview
+    });
 
-    setMapCtx(mapCanvas.getContext('2d', { alpha: false }));
-    setFogCtx(fogCanvas.getContext('2d'));
-    if (figureCanvas) {
-        setFigureCtx(figureCanvas.getContext('2d'));
-    }
-    if (previewCanvas) {
-        setPreviewCtx(previewCanvas.getContext('2d'));
-    }
+    if (!map || !fog) return;
+
+    updateCanvases({
+        mapCtx: map.getContext('2d', { alpha: false }),
+        fogCtx: fog.getContext('2d'),
+        figureCtx: figure?.getContext('2d'),
+        previewCtx: preview?.getContext('2d')
+    });
 
     // Register renderAll with viewport module
     setRenderAll(renderAll);
@@ -209,25 +212,27 @@ export function setupMapCanvases(img) {
         previewCanvas.height = canvasHeight;
     }
 
-    // Create/resize offscreen fog data canvas
+    // Create/resize offscreen data canvases
     const newFogDataCanvas = document.createElement('canvas');
     newFogDataCanvas.width = canvasWidth;
     newFogDataCanvas.height = canvasHeight;
-    setFogDataCanvas(newFogDataCanvas);
-    setFogDataCtx(newFogDataCanvas.getContext('2d', { willReadFrequently: true }));
 
-    // Create/resize offscreen preview data canvas
     const newPreviewDataCanvas = document.createElement('canvas');
     newPreviewDataCanvas.width = canvasWidth;
     newPreviewDataCanvas.height = canvasHeight;
-    setPreviewDataCanvas(newPreviewDataCanvas);
-    setPreviewDataCtx(newPreviewDataCanvas.getContext('2d', { willReadFrequently: true }));
+
+    updateCanvases({
+        fogDataCanvas: newFogDataCanvas,
+        fogDataCtx: newFogDataCanvas.getContext('2d', { willReadFrequently: true }),
+        previewDataCanvas: newPreviewDataCanvas,
+        previewDataCtx: newPreviewDataCanvas.getContext('2d', { willReadFrequently: true })
+    });
 
     // Clear any existing preview
     if (previewDataCtx) {
         previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
     }
-    setHasPreview(false);
+    updateDrawing({ hasPreview: false });
     hidePreviewActions();
 
     // Make fog visible but semi-transparent for GM
