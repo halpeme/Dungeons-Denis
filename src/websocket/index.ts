@@ -119,6 +119,10 @@ function handleMessage(socket: WebSocket, state: ConnectionState, message: WSMes
       handleSessionReconnect(socket, state, message.payload as { sessionId: string; gmToken: string });
       break;
 
+    case 'session:end':
+      handleSessionEnd(socket, state);
+      break;
+
     // GM-only events (require valid gmToken)
     case 'map:state':
     case 'map:fogUpdate':
@@ -293,6 +297,38 @@ function handleSessionReconnect(socket: WebSocket, state: ConnectionState, paylo
 
   // Send current state
   sendCurrentStateToGm(socket, session.id);
+}
+
+function handleSessionEnd(socket: WebSocket, state: ConnectionState) {
+  // Only GM can end a session
+  if (state.role !== 'gm' || !state.sessionId || !state.gmToken) {
+    sendError(socket, 'UNAUTHORIZED', 'Only GM can end a session');
+    return;
+  }
+
+  // Validate GM token
+  if (!sessionManager.validateGmToken(state.sessionId, state.gmToken)) {
+    sendError(socket, 'INVALID_TOKEN', 'Invalid GM token');
+    return;
+  }
+
+  console.log(`[WS] Ending session ${state.sessionId}`);
+
+  // Notify all clients before deleting
+  sessionManager.broadcast(state.sessionId, {
+    type: 'session:ended',
+    payload: { message: 'Session has been ended by GM' },
+  });
+
+  // Delete the session (this also closes all connections)
+  sessionManager.deleteSession(state.sessionId);
+
+  // Confirm to the GM (socket may already be closed, ignore errors)
+  try {
+    socket.send(JSON.stringify({ type: 'session:ended', payload: { success: true } }));
+  } catch {
+    // Socket already closed
+  }
 }
 
 function handleGmMessage(socket: WebSocket, state: ConnectionState, message: WSMessage) {

@@ -72,6 +72,27 @@ export class SessionManager {
     return row?.gm_token === token;
   }
 
+  // Delete session and clean up all associated data
+  deleteSession(id: string): void {
+    // Close all WebSocket connections for this session
+    const sessionConnections = connections.get(id) || [];
+    for (const conn of sessionConnections) {
+      try {
+        conn.socket.close(1000, 'Session ended');
+      } catch {
+        // Ignore close errors
+      }
+    }
+
+    // Clear in-memory data
+    connections.delete(id);
+    mapData.delete(id);
+
+    // Delete from database
+    const stmt = db.prepare('DELETE FROM sessions WHERE id = ?');
+    stmt.run(id);
+  }
+
   // Update session
   updateSession(id: string, updates: Partial<Session>): void {
     const fields: string[] = [];

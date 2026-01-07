@@ -593,8 +593,11 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     onEndSession: () => {
       if (confirm('Are you sure you want to end this session?')) {
+        // Send end session to server before clearing
+        wsClient.send('session:end', {});
         clearSession();
-        location.reload();
+        // Short delay to let server process before reload
+        setTimeout(() => location.reload(), 100);
       }
     },
     onMapUpload: handleMapUpload,
