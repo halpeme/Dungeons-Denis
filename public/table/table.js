@@ -578,6 +578,7 @@ function handlePing(screenX, screenY) {
 
   // Send to server
   if (ws && sessionId) {
+    console.log('[Table] Sending ping:', { x: worldX, y: worldY });
     ws.send('map:ping', { x: worldX, y: worldY });
     lastPingTime = now;
 

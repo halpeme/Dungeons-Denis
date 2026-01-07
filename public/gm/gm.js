@@ -523,11 +523,12 @@ function initWebSocket() {
   });
 
   wsClient.on('map:ping', (data) => {
+    console.log('[GM] Received map:ping', data);
     // data.payload = { x, y }
     import('./state.js').then(({ setActivePing }) => {
       setActivePing({
-        x: data.payload.x,
-        y: data.payload.y,
+        x: data.x,
+        y: data.y,
         timestamp: Date.now()
       });
       renderAll();
@@ -599,6 +600,7 @@ window.addEventListener('resize', () => {
 document.addEventListener('DOMContentLoaded', () => {
   initElements();
   const wsClient = initWebSocket();
+  window.wsClient = wsClient; // Exposed for debugging
 
   // Register renderAll with fog module
   setRenderAllForFog(renderAll);

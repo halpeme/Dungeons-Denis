@@ -41,11 +41,18 @@ export function renderAll() {
     renderPingLayer();
 }
 
+let lastPingLog = 0;
+
 /**
  * Render ping layer
  */
 export function renderPingLayer() {
     if (!activePing || !previewCtx) return;
+
+    if (activePing.timestamp !== lastPingLog) {
+        console.log('[GM] Rendering ping at', activePing.x, activePing.y);
+        lastPingLog = activePing.timestamp;
+    }
 
     const age = Date.now() - activePing.timestamp;
     const duration = 2000; // 2 seconds animation

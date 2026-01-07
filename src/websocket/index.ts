@@ -93,7 +93,10 @@ function handleMessage(socket: WebSocket, state: ConnectionState, message: WSMes
       }
       // Relay to GM
       if (state.sessionId) {
+        console.log(`[WS] Relaying ping from table to GM in session ${state.sessionId}`, message.payload);
         sessionManager.sendToGm(state.sessionId, message);
+      } else {
+        console.warn('[WS] Ping received but no session ID attached to socket state');
       }
       break;
 
