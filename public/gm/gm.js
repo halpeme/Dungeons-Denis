@@ -38,6 +38,8 @@ import {
   initEventListeners, setMode, updateConnectionStatus, showJoinCode, showControlPanel
 } from './ui.js';
 
+import { createTouchGestureHandler, createWheelZoomHandler } from '../shared/touch-gestures.js';
+
 // === WEBSOCKET CLIENT ===
 // WSClient is loaded via separate script tag (non-module)
 const WSClient = window.WSClient;
@@ -349,6 +351,9 @@ function stopDrawing(e) {
 }
 
 // === CANVAS INTERACTION SETUP ===
+// Uses shared touch-gestures module with GM-specific mode checking
+let gmGestureHandler = null;
+
 function setupCanvasInteraction() {
   if (!fogCanvas) return;
 
@@ -358,118 +363,67 @@ function setupCanvasInteraction() {
   fogCanvas.addEventListener('pointerleave', stopDrawing);
   fogCanvas.style.touchAction = 'none';
 
-  // Pinch-to-zoom state
-  let initialPinchDistance = null;
-  let initialPinchZoom = null;
-  let initialPinchCenter = null;
-  let initialViewportX = null;
-  let initialViewportY = null;
-  let pinchStarted = false;
-  let pinchStabilizeCount = 0;
-  let pinchHistory = [];
-  const PINCH_HISTORY_SIZE = 5;
-  let pinchAnimationFrame = null;
-  let pendingPinchUpdate = null;
-
-  function processPinchUpdate() {
-    if (!pendingPinchUpdate) { pinchAnimationFrame = null; return; }
-    const { newScale, newX, newY } = pendingPinchUpdate;
-    viewport.scale = newScale;
-    viewport.x = newX;
-    viewport.y = newY;
-    updateZoomDisplay();
-    renderAll();
-    pendingPinchUpdate = null;
-    pinchAnimationFrame = null;
-  }
+  // GM-specific: only allow pinch zoom in ZOOM mode
+  // We intercept touch events to check mode before shared handler processes them
+  let isPinchActive = false;
 
   fogCanvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
       setIsPanning(false);
-      if (currentMode !== MODE.ZOOM) return;
-      e.preventDefault();
-      pinchStarted = false;
-      pinchStabilizeCount = 0;
-      initialPinchDistance = null;
-      pendingPinchUpdate = null;
-      pinchHistory = [];
+      // Only enable pinch in ZOOM mode
+      isPinchActive = currentMode === MODE.ZOOM;
+      if (!isPinchActive) return;
+      // Reset gesture handler state when starting new pinch
+      if (gmGestureHandler) gmGestureHandler.reset();
     }
-  }, { passive: false });
+  }, { passive: true }); // Let shared handler handle preventDefault
 
+  // Create pinch-to-zoom handler with stabilization (GM-style)
+  gmGestureHandler = createTouchGestureHandler({
+    element: fogCanvas,
+    canvas: mapCanvas,
+    viewport: viewport,
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+    onUpdate: () => {
+      // Only process if pinch is active (ZOOM mode)
+      if (!isPinchActive) return;
+      updateZoomDisplay();
+      renderAll();
+    },
+    enablePan: false,  // GM handles pan separately via pointer events
+    enablePinch: true,
+    useStabilization: true,  // GM uses sophisticated stabilization
+    stabilizeFrames: 6,
+    historySize: 5,
+    deadzone: 0.10
+  });
+
+  // Override the gesture handler to respect mode
+  const originalTouchMoveHandler = fogCanvas.ontouchmove;
   fogCanvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2) {
-      if (currentMode !== MODE.ZOOM) return;
-      e.preventDefault();
-      const t1 = e.touches[0], t2 = e.touches[1];
-      const cx = (t1.clientX + t2.clientX) / 2;
-      const cy = (t1.clientY + t2.clientY) / 2;
-      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-
-      if (initialPinchDistance === null) {
-        pinchStabilizeCount++;
-        if (pinchStabilizeCount < (dist > 200 ? 8 : 6)) return;
-        initialPinchDistance = dist;
-        initialPinchZoom = viewport.scale;
-        initialPinchCenter = { x: cx, y: cy };
-        initialViewportX = viewport.x;
-        initialViewportY = viewport.y;
-        pinchHistory = Array(PINCH_HISTORY_SIZE).fill({ distance: dist, centerX: cx, centerY: cy });
-        return;
-      }
-
-      pinchHistory.push({ distance: dist, centerX: cx, centerY: cy });
-      if (pinchHistory.length > PINCH_HISTORY_SIZE) pinchHistory.shift();
-
-      const avgDist = pinchHistory.reduce((s, i) => s + i.distance, 0) / pinchHistory.length;
-      const zoomRatio = avgDist / initialPinchDistance;
-
-      if (!pinchStarted && Math.abs(zoomRatio - 1) < 0.10) return;
-      if (!pinchStarted) {
-        initialPinchDistance = dist;
-        initialPinchCenter = { x: cx, y: cy };
-        initialViewportX = viewport.x;
-        initialViewportY = viewport.y;
-        initialPinchZoom = viewport.scale;
-        pinchStarted = true;
-        return;
-      }
-
-      const newZoomRatio = avgDist / initialPinchDistance;
-      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, initialPinchZoom * newZoomRatio));
-      const rect = mapCanvas.getBoundingClientRect();
-      const scaleX = mapCanvas.width / rect.width;
-      const scaleY = mapCanvas.height / rect.height;
-      const initInternalX = (initialPinchCenter.x - rect.left) * scaleX;
-      const initInternalY = (initialPinchCenter.y - rect.top) * scaleY;
-      const worldX = (initInternalX - initialViewportX) / initialPinchZoom;
-      const worldY = (initInternalY - initialViewportY) / initialPinchZoom;
-      const newX = initInternalX - worldX * newScale;
-      const newY = initInternalY - worldY * newScale;
-
-      pendingPinchUpdate = { newScale, newX, newY };
-      if (!pinchAnimationFrame) pinchAnimationFrame = requestAnimationFrame(processPinchUpdate);
+    if (e.touches.length === 2 && !isPinchActive) {
+      // Block pinch if not in ZOOM mode
+      return;
     }
-  }, { passive: false });
+  }, { passive: true, capture: true });
 
   fogCanvas.addEventListener('touchend', (e) => {
     if (e.touches.length < 2) {
-      initialPinchDistance = null;
-      initialPinchZoom = null;
-      initialPinchCenter = null;
-      initialViewportX = null;
-      initialViewportY = null;
-      pinchStarted = false;
-      pinchStabilizeCount = 0;
-      pendingPinchUpdate = null;
-      if (pinchAnimationFrame) { cancelAnimationFrame(pinchAnimationFrame); pinchAnimationFrame = null; }
+      isPinchActive = false;
     }
   });
 
-  // Mouse wheel zoom
-  document.getElementById('map-viewport')?.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    zoomAtPoint(e.clientX, e.clientY, e.deltaY > 0 ? 0.9 : 1.1);
-  }, { passive: false });
+  // Mouse wheel zoom - using shared handler
+  const mapViewport = document.getElementById('map-viewport');
+  if (mapViewport) {
+    createWheelZoomHandler({
+      element: mapViewport,
+      onZoom: (clientX, clientY, scaleFactor) => {
+        zoomAtPoint(clientX, clientY, scaleFactor);
+      }
+    });
+  }
 }
 
 // === WEBSOCKET SETUP ===
@@ -555,6 +509,14 @@ function initWebSocket() {
 
   wsClient.on('error', (data) => {
     console.error('Server error:', data);
+
+    // If another GM is already connected, redirect to table display
+    if (data.code === 'GM_ALREADY_CONNECTED') {
+      alert('Another GM is already connected. Redirecting to table display...');
+      window.location.href = '/table';
+      return;
+    }
+
     alert(`Error: ${data.message}`);
   });
 

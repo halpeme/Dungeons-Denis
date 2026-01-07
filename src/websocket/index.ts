@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from '@fastify/websocket';
 import { sessionManager } from '../session/manager.js';
 import type { WSMessage } from './events.js';
+import { processGmMessage } from './handlers/gm-handlers.js';
 
 interface ConnectionState {
   sessionId: string | null;
@@ -172,6 +173,13 @@ function handleSessionCreate(socket: WebSocket, state: ConnectionState) {
   const { session, gmToken, isNew } = sessionManager.getOrCreateSession();
   console.log(`[WS] Got session: id=${session.id}, isNew=${isNew}`);
 
+  // Check if a GM is already connected to this session
+  if (sessionManager.hasActiveGm(session.id)) {
+    console.log('[WS] Rejecting GM connection - another GM is already connected');
+    sendError(socket, 'GM_ALREADY_CONNECTED', 'Another GM is already connected to this session');
+    return;
+  }
+
   state.sessionId = session.id;
   state.role = 'gm';
   state.gmToken = gmToken;
@@ -262,6 +270,13 @@ function handleSessionReconnect(socket: WebSocket, state: ConnectionState, paylo
     return;
   }
 
+  // Check if a GM is already connected to this session
+  if (sessionManager.hasActiveGm(session.id)) {
+    console.log('[WS] Rejecting GM reconnect - another GM is already connected');
+    sendError(socket, 'GM_ALREADY_CONNECTED', 'Another GM is already connected to this session');
+    return;
+  }
+
   state.sessionId = session.id;
   state.role = 'gm';
   state.gmToken = payload.gmToken;
@@ -283,196 +298,11 @@ function handleSessionReconnect(socket: WebSocket, state: ConnectionState, paylo
 function handleGmMessage(socket: WebSocket, state: ConnectionState, message: WSMessage) {
   const sessionId = state.sessionId!;
 
-  switch (message.type) {
-    // Image-based map with fog of war
-    case 'map:state': {
-      const { mapImage, fogMask } = message.payload as { mapImage: string; fogMask: string };
+  // Use the handler registry to process GM messages
+  const handled = processGmMessage(sessionId, message);
 
-      sessionManager.updateSession(sessionId, {
-        mapImage,
-        fogMask,
-        displayMode: 'map',
-      });
-
-      // Broadcast to table
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'map:state',
-        payload: { mapImage, fogMask },
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'display:mode',
-        payload: { mode: 'map' },
-      });
-      break;
-    }
-
-    case 'map:fogUpdate': {
-      const { fogMask } = message.payload as { fogMask: string };
-
-      sessionManager.updateSession(sessionId, { fogMask });
-
-      // Broadcast to table
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'map:fogUpdate',
-        payload: { fogMask },
-      });
-      break;
-    }
-
-    case 'map:fogPartial': {
-      // Just broadcast partial update to table, do NOT update session persistence yet
-      // (Client will send full update debounced)
-      sessionManager.broadcastToTable(sessionId, message);
-      break;
-    }
-
-    case 'map:clear': {
-      sessionManager.updateSession(sessionId, {
-        mapImage: null,
-        fogMask: null,
-        displayMode: 'blank',
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'map:clear',
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'display:mode',
-        payload: { mode: 'blank' },
-      });
-      break;
-    }
-
-    case 'figures:update': {
-      const { figures } = message.payload as { figures: any[] };
-
-      sessionManager.updateSession(sessionId, { figures });
-
-      // Broadcast to table
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'figures:update',
-        payload: { figures },
-      });
-      break;
-    }
-
-    case 'figures:clear': {
-      sessionManager.updateSession(sessionId, { figures: [] });
-
-      // Broadcast to table
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'figures:clear',
-      });
-      break;
-    }
-
-    case 'handout:push': {
-      const { imageUrl } = message.payload as { imageUrl: string };
-
-      sessionManager.updateSession(sessionId, {
-        displayMode: 'handout',
-        currentHandout: imageUrl,
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'handout:display',
-        payload: { imageUrl },
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'display:mode',
-        payload: { mode: 'handout' },
-      });
-      break;
-    }
-
-    case 'handout:clear': {
-      sessionManager.updateSession(sessionId, {
-        displayMode: 'map',
-        currentHandout: null,
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'handout:clear',
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'display:mode',
-        payload: { mode: 'map' },
-      });
-      break;
-    }
-
-    case 'decision:push': {
-      const decision = message.payload as { id: string; title: string; options: { id: string; text: string }[] };
-
-      sessionManager.updateSession(sessionId, {
-        displayMode: 'decision',
-        currentDecision: decision,
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'decision:display',
-        payload: decision,
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'display:mode',
-        payload: { mode: 'decision' },
-      });
-      break;
-    }
-
-    case 'decision:clear': {
-      sessionManager.updateSession(sessionId, {
-        displayMode: 'map',
-        currentDecision: null,
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'decision:clear',
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'display:mode',
-        payload: { mode: 'map' },
-      });
-      break;
-    }
-
-    case 'puzzle:push': {
-      const puzzle = message.payload as { id: string; type: string; data: unknown };
-
-      sessionManager.updateSession(sessionId, {
-        displayMode: 'puzzle',
-        currentPuzzle: puzzle as any,
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'puzzle:display',
-        payload: puzzle,
-      });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'display:mode',
-        payload: { mode: 'puzzle' },
-      });
-      break;
-    }
-
-    case 'display:mode': {
-      const { mode } = message.payload as { mode: 'blank' | 'map' | 'handout' | 'decision' | 'puzzle' };
-
-      sessionManager.updateSession(sessionId, { displayMode: mode });
-
-      sessionManager.broadcastToTable(sessionId, {
-        type: 'display:mode',
-        payload: { mode },
-      });
-      break;
-    }
+  if (!handled) {
+    console.warn(`[WS] Unhandled GM message type: ${message.type}`);
   }
 }
 

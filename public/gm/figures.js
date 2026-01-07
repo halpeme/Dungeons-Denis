@@ -9,12 +9,13 @@ import {
     ws
 } from './state.js';
 import { applyViewportTransform } from './viewport.js';
+import { drawFigure as sharedDrawFigure, generateFigureId as sharedGenerateId, findFigureAtPosition as sharedFindFigure } from '../shared/figures.js';
 
 /**
  * Generate unique ID for figures
  */
 export function generateFigureId() {
-    return 'fig_' + Math.random().toString(36).substr(2, 9) + Date.now();
+    return sharedGenerateId();
 }
 
 /**
@@ -37,49 +38,11 @@ export function renderFigures() {
 }
 
 /**
- * Draw a single figure on the canvas
+ * Draw a single figure on the canvas - uses shared figures module
  */
 export function drawFigure(ctx, figure, opacity) {
-    ctx.save();
-    ctx.globalAlpha = opacity;
-
-    const radius = 20;
-    const { x, y } = figure.position;
     const isSelected = figure.id === selectedPlacedFigure;
-
-    // Draw selection ring if selected
-    if (isSelected) {
-        ctx.strokeStyle = '#fbbf24'; // amber-400
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(x, y, radius + 6, 0, Math.PI * 2);
-        ctx.stroke();
-    }
-
-    // Draw colored circle
-    ctx.fillStyle = figure.type === 'enemy' ? '#ef4444' :
-        figure.type === 'player' ? '#22c55e' : '#f59e0b';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw white border
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Draw number or POI symbol
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${radius * 1.2}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    if (figure.type === 'poi') {
-        ctx.fillText('★', x, y);
-    } else {
-        ctx.fillText(figure.number, x, y);
-    }
-
-    ctx.restore();
+    sharedDrawFigure(ctx, figure, { isSelected, opacity });
 }
 
 /**
@@ -145,17 +108,10 @@ export function updateFigurePalette() {
 }
 
 /**
- * Find figure at given canvas position
+ * Find figure at given canvas position - uses shared figures module
  */
 export function findFigureAtPosition(pos) {
-    const hitRadius = 30;
-    return figures.find(fig => {
-        const dist = Math.sqrt(
-            Math.pow(fig.position.x - pos.x, 2) +
-            Math.pow(fig.position.y - pos.y, 2)
-        );
-        return dist < hitRadius;
-    });
+    return sharedFindFigure(figures, pos, 30);
 }
 
 /**

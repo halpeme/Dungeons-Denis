@@ -161,6 +161,12 @@ export class SessionManager {
     return this.getConnections(sessionId).find(c => c.role === 'gm');
   }
 
+  // Check if there's an active GM connection (socket is open)
+  hasActiveGm(sessionId: string): boolean {
+    const gmConns = this.getConnections(sessionId).filter(c => c.role === 'gm');
+    return gmConns.some(c => c.socket.readyState === 1); // 1 = OPEN
+  }
+
   // Get table connections
   getTableConnections(sessionId: string): SessionConnection[] {
     return this.getConnections(sessionId).filter(c => c.role === 'table');

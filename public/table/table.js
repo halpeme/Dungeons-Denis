@@ -2,6 +2,11 @@
  * Table Display Logic - Image-based Fog of War
  */
 
+import { screenToCanvasRaw, screenToWorld, applyViewportTransform as sharedApplyTransform, zoomAtPoint as sharedZoomAtPoint } from '../shared/viewport.js';
+import { drawFigures as sharedDrawFigures } from '../shared/figures.js';
+import { updateConnectionStatus as sharedUpdateStatus } from '../shared/connection-ui.js';
+import { createTouchGestureHandler, createMousePanHandler, createWheelZoomHandler } from '../shared/touch-gestures.js';
+
 // State
 let ws = null;
 let sessionId = null;
@@ -59,16 +64,7 @@ function initWebSocket() {
   // Expose to window for beforeunload/pagehide cleanup handlers
   window.wsClient = ws;
 
-  // Safari fix: If stuck on "connecting" for 3 seconds, force reconnect
-  // This mimics Remote Mouse's approach that works reliably on Safari
-  setInterval(() => {
-    if (ws && !ws.connected && ws.pendingSocket) {
-      console.log('[SAFARI FIX] Stuck on connecting, forcing reconnect');
-      ws.pendingSocket.close();
-      ws.pendingSocket = null;
-      ws.connect().catch(() => {});
-    }
-  }, 3000);
+  // Note: Safari stuck-connection fix is now handled in WSClient.startStuckConnectionCheck()
 
   ws.on('connecting', () => {
     updateConnectionStatus('connecting');
@@ -214,36 +210,9 @@ function initEventListeners() {
   // No join button needed - auto-join on connect
 }
 
-// UI Updates
+// UI Updates - uses shared connection-ui module
 function updateConnectionStatus(status, data = {}) {
-  if (typeof status === 'boolean') {
-    // Legacy boolean support
-    elements.statusDot.className = `w-2 h-2 rounded-full ${status ? 'bg-green-500' : 'bg-red-500'}`;
-    elements.statusText.textContent = status ? 'Connected' : 'Disconnected';
-    return;
-  }
-
-  switch (status) {
-    case 'connected':
-      elements.statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
-      elements.statusText.textContent = 'Connected';
-      break;
-    case 'connecting':
-      elements.statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
-      elements.statusText.textContent = 'Connecting...';
-      break;
-    case 'reconnecting':
-      const seconds = Math.ceil((data.remainingMs || 0) / 1000);
-      elements.statusDot.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
-      elements.statusText.textContent = `Retry in ${seconds}s`;
-      break;
-    case 'disconnected':
-    default:
-      elements.statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
-      const reason = data && data.code ? ` (${data.code})` : '';
-      elements.statusText.textContent = `Disconnected${reason}`;
-      break;
-  }
+  sharedUpdateStatus(elements, status, data);
 }
 
 function showMainDisplay() {
@@ -278,45 +247,21 @@ let viewport = {
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 
-// === VIEWPORT TRANSFORM FUNCTIONS ===
+// === VIEWPORT TRANSFORM FUNCTIONS (using shared module) ===
 
 // Convert screen coordinates to canvas coordinates
 function screenToCanvas(clientX, clientY) {
-  const canvas = elements.mapCanvas;
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  return {
-    x: (clientX - rect.left) * scaleX,
-    y: (clientY - rect.top) * scaleY
-  };
+  return screenToCanvasRaw(clientX, clientY, elements.mapCanvas);
 }
 
 // Apply viewport transform to a canvas context
 function applyViewportTransform(ctx) {
-  ctx.translate(viewport.x, viewport.y);
-  ctx.scale(viewport.scale, viewport.scale);
-  ctx.rotate(viewport.rotation * Math.PI / 180);
+  sharedApplyTransform(ctx, viewport, elements.mapCanvas);
 }
 
 // Zoom centered on a specific screen point
 function zoomAtPoint(clientX, clientY, scaleFactor) {
-  const pt = screenToCanvas(clientX, clientY);
-
-  // Calculate world point under cursor before zoom
-  // worldX = (screenX - viewportX) / scale
-  const worldX = (pt.x - viewport.x) / viewport.scale;
-  const worldY = (pt.y - viewport.y) / viewport.scale;
-
-  // Update scale
-  const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, viewport.scale * scaleFactor));
-
-  // Adjust viewport to keep world point under cursor
-  // newViewportX = screenX - worldX * newScale
-  viewport.x = pt.x - worldX * newScale;
-  viewport.y = pt.y - worldY * newScale;
-  viewport.scale = newScale;
-
+  sharedZoomAtPoint(clientX, clientY, scaleFactor, elements.mapCanvas, viewport, MIN_ZOOM, MAX_ZOOM);
   renderMap();
 }
 
@@ -385,218 +330,54 @@ function renderMap() {
   ctx.restore();
 }
 
-// Draw figures on table display
-function drawFigures(ctx, figures) {
-  figures.forEach(figure => {
-    // In world space, easy!
-    const x = figure.position.x;
-    const y = figure.position.y;
-    // Scale figure size slightly with zoom but not 1:1 to avoid tiny/huge icons
-    // Actually, keeping them world-scale is usually best for maps,
-    // but maybe we want a minimum visible size? 
-    // For now, let's keep them fixed world size (20px radius base)
-    const radius = 20;
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-
-    // Draw colored circle
-    ctx.fillStyle = figure.type === 'enemy' ? '#ef4444' :
-      figure.type === 'player' ? '#22c55e' : '#f59e0b';
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw white border
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Draw number or POI symbol
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${radius * 1.2}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    if (figure.type === 'poi') {
-      ctx.fillText('★', x, y);
-    } else {
-      ctx.fillText(figure.number, x, y);
-    }
-
-    ctx.restore();
-  });
+// Draw figures on table display - uses shared figures module
+function drawFigures(ctx, figuresList) {
+  sharedDrawFigures(ctx, figuresList);
 }
 
-// Interaction Event Listeners
+// Interaction Event Listeners - uses shared touch-gestures module
+let gestureHandler = null;
+let mousePanHandler = null;
+
 function initInteractionListeners() {
   const canvas = elements.mapCanvas;
 
-  // Mouse Wheel Zoom
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    zoomAtPoint(e.clientX, e.clientY, scaleFactor);
-  }, { passive: false });
-
-  // Mouse Drag Pan
-  let isDragging = false;
-  let lastX = 0;
-  let lastY = 0;
-
-  canvas.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    canvas.style.cursor = 'grabbing';
-  });
-
-  window.addEventListener('mousemove', (e) => {
-    if (isDragging) {
-      const deltaX = e.clientX - lastX;
-      const deltaY = e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-
-      // Adjust viewport (taking canvas scaling into account)
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      viewport.x += deltaX * scaleX;
-      viewport.y += deltaY * scaleY;
-      renderMap();
+  // Mouse Wheel Zoom - using shared handler
+  createWheelZoomHandler({
+    element: canvas,
+    onZoom: (clientX, clientY, scaleFactor) => {
+      zoomAtPoint(clientX, clientY, scaleFactor);
     }
   });
 
-  window.addEventListener('mouseup', () => {
-    isDragging = false;
-    canvas.style.cursor = 'default';
+  // Mouse Drag Pan - using shared handler
+  mousePanHandler = createMousePanHandler({
+    element: canvas,
+    canvas: canvas,
+    viewport: viewport,
+    onUpdate: renderMap
   });
 
-  // Touch Gestures (Pinch/Pan)
-  let initialPinchDistance = null;
-  let initialPinchZoom = null;
-  let initialPinchCenter = null;
-  let initialViewportX = null;
-  let initialViewportY = null;
-  let lastTouchX = 0;
-  let lastTouchY = 0;
-  let fingerCount = 0;
-
-  canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    fingerCount = e.touches.length;
-
-    if (fingerCount === 1) {
-      // Pan start
-      lastTouchX = e.touches[0].clientX;
-      lastTouchY = e.touches[0].clientY;
-    } else if (fingerCount === 2) {
-      // Pinch start
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      initialPinchDistance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      );
-      initialPinchZoom = viewport.scale;
-      initialPinchCenter = {
-        x: (touch1.clientX + touch2.clientX) / 2,
-        y: (touch1.clientY + touch2.clientY) / 2
-      };
-      initialViewportX = viewport.x;
-      initialViewportY = viewport.y;
-    }
-  }, { passive: false });
-
-  canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-
-    if (e.touches.length === 1 && fingerCount === 1) {
-      // Single finger pan
-      const touchX = e.touches[0].clientX;
-      const touchY = e.touches[0].clientY;
-      const deltaX = touchX - lastTouchX;
-      const deltaY = touchY - lastTouchY;
-      lastTouchX = touchX;
-      lastTouchY = touchY;
-
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      viewport.x += deltaX * scaleX;
-      viewport.y += deltaY * scaleY;
-      renderMap();
-
-    } else if (e.touches.length === 2 && initialPinchDistance) {
-      // Pinch Zoom
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const currentDistance = Math.hypot(
-        touch2.clientX - touch1.clientX,
-        touch2.clientY - touch1.clientY
-      );
-
-      // Calculate new scale
-      const zoomRatio = currentDistance / initialPinchDistance;
-      const newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, initialPinchZoom * zoomRatio));
-
-      // Calculate center point logic (zoom towards center)
-      // This is simplified pinch zoom logic
-      const currentCenter = {
-        x: (touch1.clientX + touch2.clientX) / 2,
-        y: (touch1.clientY + touch2.clientY) / 2
-      };
-
-      // We want to keep the point under the pinch center stable relative to the world
-
-      // Get internal canvas coords of initial center
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-
-      const initialCanvasX = (initialPinchCenter.x - rect.left) * scaleX;
-      const initialCanvasY = (initialPinchCenter.y - rect.top) * scaleY;
-
-      // World point at initial center
-      const worldX = (initialCanvasX - initialViewportX) / initialPinchZoom;
-      const worldY = (initialCanvasY - initialViewportY) / initialPinchZoom;
-
-      // Current canvas coords
-      const currentCanvasX = (currentCenter.x - rect.left) * scaleX;
-      const currentCanvasY = (currentCenter.y - rect.top) * scaleY;
-
-      // New viewport pos: currentCanvas - world * newScale
-      viewport.x = currentCanvasX - worldX * newScale;
-      viewport.y = currentCanvasY - worldY * newScale;
-      viewport.scale = newScale;
-
-      renderMap();
-    }
-  }, { passive: false });
-
-  canvas.addEventListener('touchend', (e) => {
-    fingerCount = e.touches.length;
-    if (fingerCount === 0) {
-      initialPinchDistance = null;
-    }
-    // Update last touch pos if we go from 2->1 fingers to avoid jump
-    if (fingerCount === 1) {
-      lastTouchX = e.touches[0].clientX;
-      lastTouchY = e.touches[0].clientY;
-    }
+  // Touch Gestures (Pinch/Pan) - using shared handler
+  // Table uses simple mode (no stabilization) for immediate response
+  gestureHandler = createTouchGestureHandler({
+    element: canvas,
+    canvas: canvas,
+    viewport: viewport,
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM,
+    onUpdate: renderMap,
+    useStabilization: false  // Table uses simpler immediate response
   });
 
-  // Double tap to reset
+  // Double tap for ping
   let lastTap = 0;
   canvas.addEventListener('touchend', (e) => {
     const currentTime = new Date().getTime();
     const tapLength = currentTime - lastTap;
     if (tapLength < 500 && tapLength > 0 && e.touches.length === 0) {
-      // Check if it was a double tap or drag
-      if (!isDragging) {
-        // Send Ping on double tap/click
+      // Check if it was a double tap (not during pan/pinch)
+      if (!gestureHandler.isPanning && !gestureHandler.isPinching) {
         const touch = e.changedTouches[0];
         handlePing(touch.clientX, touch.clientY);
       }

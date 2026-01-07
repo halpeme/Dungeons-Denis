@@ -27,6 +27,22 @@ export function hidePreviewActions() {
 }
 
 /**
+ * Clear all preview canvases and reset preview state
+ * Extracted common pattern used by confirmPreview, cancelPreview, clearFog, revealAll
+ */
+function clearPreviewCanvases() {
+    if (previewDataCtx && previewDataCanvas) {
+        previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
+    }
+    if (previewCtx && previewCanvas) {
+        previewCtx.setTransform(1, 0, 0, 1, 0, 0);
+        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    }
+    setHasPreview(false);
+    hidePreviewActions();
+}
+
+/**
  * Confirm the fog preview - apply to actual fog
  */
 export function confirmPreview() {
@@ -37,14 +53,8 @@ export function confirmPreview() {
     fogDataCtx.drawImage(previewDataCanvas, 0, 0);
     fogDataCtx.globalCompositeOperation = 'source-over';
 
-    // Clear preview data and display
-    previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-    if (previewCtx) {
-        previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    }
-    setHasPreview(false);
-    hidePreviewActions();
+    // Clear preview
+    clearPreviewCanvases();
 
     // Update display and sync to table
     if (renderAllFn) renderAllFn();
@@ -55,16 +65,7 @@ export function confirmPreview() {
  * Cancel the fog preview
  */
 export function cancelPreview() {
-    // Clear the preview data and display canvases
-    if (previewDataCtx && previewDataCanvas) {
-        previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-    }
-    if (previewCtx && previewCanvas) {
-        previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    }
-    setHasPreview(false);
-    hidePreviewActions();
+    clearPreviewCanvases();
 }
 
 /**
@@ -74,15 +75,7 @@ export function clearFog() {
     if (!fogDataCanvas) return;
 
     // Clear any preview first
-    if (previewDataCtx && previewDataCanvas) {
-        previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-    }
-    if (previewCtx && previewCanvas) {
-        previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    }
-    setHasPreview(false);
-    hidePreviewActions();
+    clearPreviewCanvases();
 
     // Fill fog data with black (all hidden)
     fogDataCtx.globalCompositeOperation = 'source-over';
@@ -100,15 +93,7 @@ export function revealAll() {
     if (!fogDataCanvas) return;
 
     // Clear any preview first
-    if (previewDataCtx && previewDataCanvas) {
-        previewDataCtx.clearRect(0, 0, previewDataCanvas.width, previewDataCanvas.height);
-    }
-    if (previewCtx && previewCanvas) {
-        previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    }
-    setHasPreview(false);
-    hidePreviewActions();
+    clearPreviewCanvases();
 
     // Clear the fog data canvas (all revealed)
     fogDataCtx.clearRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);

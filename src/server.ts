@@ -154,7 +154,13 @@ async function start() {
       const cleaned = sessionManager.cleanupOldSessions();
       if (cleaned > 0) console.log(`[Cleanup] Removed ${cleaned} expired sessions`);
     }, 60 * 60 * 1000);
-  } catch (err) {
+  } catch (err: any) {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ Port ${config.port} is already in use!`);
+      console.error(`   Another instance of Dungeons & Denis is probably already running.`);
+      console.error(`   Stop the other instance first, or use Ctrl+C in its terminal.\n`);
+      process.exit(1);
+    }
     fastify.log.error(err);
     process.exit(1);
   }

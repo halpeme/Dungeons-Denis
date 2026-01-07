@@ -59,6 +59,9 @@ class WSClient {
         const socket = new WebSocket(url);
         this.pendingSocket = socket;
 
+        // Start Safari stuck connection check
+        this.startStuckConnectionCheck();
+
         // Timeout for connection (10 seconds for slower networks)
         const timeout = setTimeout(() => {
           if (socket.readyState !== WebSocket.OPEN) {
@@ -77,6 +80,7 @@ class WSClient {
         socket.onopen = () => {
           console.log('WebSocket connected');
           clearTimeout(timeout);
+          this.stopStuckConnectionCheck();  // No longer need stuck check
           this.pendingSocket = null;
           this.socket = socket;
           this.connected = true;
@@ -141,6 +145,42 @@ class WSClient {
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
       this.countdownInterval = null;
+    }
+    if (this.stuckCheckInterval) {
+      clearInterval(this.stuckCheckInterval);
+      this.stuckCheckInterval = null;
+    }
+  }
+
+  // Safari fix: Start checking for stuck "connecting" state
+  startStuckConnectionCheck() {
+    // Clear any existing interval
+    if (this.stuckCheckInterval) {
+      clearInterval(this.stuckCheckInterval);
+    }
+
+    // Check every 3 seconds if we're stuck on connecting
+    this.stuckCheckInterval = setInterval(() => {
+      if (!this.connected && this.pendingSocket && this.pendingSocket.readyState === WebSocket.CONNECTING) {
+        console.log('[SAFARI FIX] Stuck on connecting for 3s, forcing reconnect');
+        // Close the stuck socket
+        this.pendingSocket.onopen = null;
+        this.pendingSocket.onclose = null;
+        this.pendingSocket.onerror = null;
+        this.pendingSocket.onmessage = null;
+        this.pendingSocket.close();
+        this.pendingSocket = null;
+        // Reconnect
+        this.connect().catch(() => {});
+      }
+    }, 3000);
+  }
+
+  // Stop the stuck connection check
+  stopStuckConnectionCheck() {
+    if (this.stuckCheckInterval) {
+      clearInterval(this.stuckCheckInterval);
+      this.stuckCheckInterval = null;
     }
   }
 
