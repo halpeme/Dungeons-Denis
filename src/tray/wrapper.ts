@@ -25,10 +25,12 @@ class DungeonsTray {
   private readonly MAX_BUFFER_LINES = 1000;
   private readonly LOG_DIR: string;
   private readonly PROJECT_ROOT: string;
+  private readonly LOCK_FILE: string;
 
   constructor() {
     this.PROJECT_ROOT = path.join(__dirname, '../..');
     this.LOG_DIR = path.join(this.PROJECT_ROOT, 'logs');
+    this.LOCK_FILE = path.join(this.LOG_DIR, 'tray.lock');
     this.server = {
       process: null,
       running: false,
@@ -42,7 +44,75 @@ class DungeonsTray {
       fs.mkdirSync(this.LOG_DIR, { recursive: true });
     }
 
+    // Single-instance check
+    if (this.isAnotherInstanceRunning()) {
+      console.error('Another instance of Dungeons & Denis is already running.');
+      console.error('Exiting to prevent duplicate tray icons.');
+      process.exit(1);
+    }
+
+    // Create lock file with our PID
+    this.createLockFile();
+
     this.initializeTray();
+  }
+
+  private isAnotherInstanceRunning(): boolean {
+    if (!fs.existsSync(this.LOCK_FILE)) {
+      return false;
+    }
+
+    try {
+      const lockPid = parseInt(fs.readFileSync(this.LOCK_FILE, 'utf8').trim(), 10);
+      if (isNaN(lockPid)) {
+        // Invalid lock file, clean it up
+        fs.unlinkSync(this.LOCK_FILE);
+        return false;
+      }
+
+      // Check if that PID is still running
+      // On Windows, this throws if process doesn't exist
+      process.kill(lockPid, 0);
+      return true; // Process exists, another instance is running
+    } catch (err: any) {
+      if (err.code === 'ESRCH' || err.code === 'EPERM') {
+        // ESRCH = process doesn't exist, EPERM = exists but no permission (still running)
+        if (err.code === 'EPERM') {
+          return true; // Process exists
+        }
+        // Stale lock file, remove it
+        try {
+          fs.unlinkSync(this.LOCK_FILE);
+        } catch {
+          // Ignore
+        }
+        return false;
+      }
+      // Other error, assume no instance running
+      return false;
+    }
+  }
+
+  private createLockFile(): void {
+    fs.writeFileSync(this.LOCK_FILE, process.pid.toString());
+
+    // Clean up lock file on exit
+    const cleanup = () => {
+      try {
+        if (fs.existsSync(this.LOCK_FILE)) {
+          const lockPid = parseInt(fs.readFileSync(this.LOCK_FILE, 'utf8').trim(), 10);
+          if (lockPid === process.pid) {
+            fs.unlinkSync(this.LOCK_FILE);
+          }
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+
+    process.on('exit', cleanup);
+    process.on('SIGINT', () => { cleanup(); process.exit(0); });
+    process.on('SIGTERM', () => { cleanup(); process.exit(0); });
   }
 
   private getLocalIPAddress(): string {
