@@ -252,7 +252,5 @@ export function showMapCanvas() {
     document.getElementById('map-canvas-section').classList.remove('hidden');
     document.getElementById('mode-toggle')?.classList.remove('hidden');
     document.getElementById('settings-toggle-btn')?.classList.remove('hidden');
-    document.getElementById('figure-palette-floating')?.classList.remove('hidden');
-
     updateCursor();
 }
