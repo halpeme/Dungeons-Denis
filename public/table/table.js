@@ -365,14 +365,17 @@ function drawFigures(ctx, figuresList) {
 
 // Render grid overlay
 function renderGrid() {
-  if (!gridConfig.enabled || !elements.gridCanvas || !mapImage) return;
+  if (!elements.gridCanvas) return;
 
   const canvas = elements.gridCanvas;
   const ctx = canvas.getContext('2d');
 
-  // Clear canvas
+  // Always clear canvas first
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Only draw if enabled and map exists
+  if (!gridConfig.enabled || !mapImage) return;
 
   // Apply viewport transform
   ctx.save();
