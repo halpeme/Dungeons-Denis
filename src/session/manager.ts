@@ -34,6 +34,7 @@ export class SessionManager {
       gmToken,
       mapImage: null,
       fogMask: null,
+      gridConfig: null,
       dungeonId: null,
       fogState: [],
       partyPosition: { x: 0, y: 0 },
@@ -125,6 +126,10 @@ export class SessionManager {
     if (updates.figures !== undefined) {
       fields.push('figures = ?');
       values.push(JSON.stringify(updates.figures));
+    }
+    if (updates.gridConfig !== undefined) {
+      fields.push('grid_config = ?');
+      values.push(updates.gridConfig ? JSON.stringify(updates.gridConfig) : null);
     }
     if (updates.displayMode !== undefined) {
       fields.push('display_mode = ?');
@@ -285,6 +290,7 @@ export class SessionManager {
       gmToken: row.gm_token,
       mapImage: sessionMapData.mapImage,
       fogMask: sessionMapData.fogMask,
+      gridConfig: row.grid_config ? JSON.parse(row.grid_config) : null,
       dungeonId: row.dungeon_id,
       fogState: JSON.parse(row.fog_state),
       partyPosition: JSON.parse(row.party_position),

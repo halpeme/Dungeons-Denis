@@ -100,6 +100,21 @@ export interface MapPingMessage extends WSMessage {
   };
 }
 
+export interface MapGridConfigMessage extends WSMessage {
+  type: 'map:gridConfig';
+  payload: {
+    enabled: boolean;
+    size: number;
+    offsetX: number;
+    offsetY: number;
+    color: string;
+    opacity: number;
+    snapToGrid: boolean;
+    unit: string;
+    unitScale: number;
+  };
+}
+
 // Handout events
 export interface HandoutPushMessage extends WSMessage {
   type: 'handout:push';

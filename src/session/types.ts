@@ -11,6 +11,18 @@ export interface Figure {
   createdAt: number;
 }
 
+export interface GridConfig {
+  enabled: boolean;
+  size: number;
+  offsetX: number;
+  offsetY: number;
+  color: string;
+  opacity: number;
+  snapToGrid: boolean;
+  unit: string;
+  unitScale: number;
+}
+
 export interface Session {
   id: string;
   joinCode: string;
@@ -18,6 +30,7 @@ export interface Session {
   // Image-based map (stored in memory only, not persisted)
   mapImage: string | null;   // Base64 map image
   fogMask: string | null;    // Base64 fog mask
+  gridConfig: GridConfig | null;  // Grid configuration
   // Legacy dungeon fields (deprecated)
   dungeonId: string | null;
   fogState: number[][];
@@ -57,6 +70,7 @@ export interface SessionRow {
   fog_state: string;
   party_position: string;
   figures: string;
+  grid_config: string | null;
   display_mode: string;
   current_handout: string | null;
   current_decision: string | null;

@@ -37,6 +37,21 @@ export const MIN_ZOOM = 0.5;
 export const MAX_ZOOM = 3;
 export const ZOOM_STEP = 0.25;
 
+// === GRID STATE ===
+export let gridCanvas = null;
+export let gridCtx = null;
+export const gridConfig = {
+    enabled: false,
+    size: 50, // pixels per grid square (default ~5ft at typical map scales)
+    offsetX: 0,
+    offsetY: 0,
+    color: '#ffffff',
+    opacity: 0.3,
+    snapToGrid: false,
+    unit: 'ft', // 'ft' or 'm'
+    unitScale: 5 // 5ft per square (D&D standard) or 1.5m
+};
+
 // === MODE STATE ===
 export const MODE = { ZOOM: 'zoom', DRAW: 'draw', FIGURE: 'figure' };
 export let currentMode = MODE.ZOOM;
@@ -105,6 +120,20 @@ export function updateFigures(updates) {
     if ('activePing' in updates) activePing = updates.activePing;
 }
 
+export function updateGrid(updates) {
+    if ('gridCanvas' in updates) gridCanvas = updates.gridCanvas;
+    if ('gridCtx' in updates) gridCtx = updates.gridCtx;
+    if ('enabled' in updates) gridConfig.enabled = updates.enabled;
+    if ('size' in updates) gridConfig.size = updates.size;
+    if ('offsetX' in updates) gridConfig.offsetX = updates.offsetX;
+    if ('offsetY' in updates) gridConfig.offsetY = updates.offsetY;
+    if ('color' in updates) gridConfig.color = updates.color;
+    if ('opacity' in updates) gridConfig.opacity = updates.opacity;
+    if ('snapToGrid' in updates) gridConfig.snapToGrid = updates.snapToGrid;
+    if ('unit' in updates) gridConfig.unit = updates.unit;
+    if ('unitScale' in updates) gridConfig.unitScale = updates.unitScale;
+}
+
 // === INDIVIDUAL SETTERS (kept for backward compatibility) ===
 export function setWs(value) { ws = value; }
 export function setSessionId(value) { sessionId = value; }
@@ -138,6 +167,8 @@ export function setSelectedPlacedFigure(value) { selectedPlacedFigure = value; }
 export function setLastFigureTapTime(value) { lastFigureTapTime = value; }
 export function setIsFigurePaletteOpen(value) { isFigurePaletteOpen = value; }
 export function setActivePing(value) { activePing = value; }
+export function setGridCanvas(value) { gridCanvas = value; }
+export function setGridCtx(value) { gridCtx = value; }
 
 // === PRESET MAPS ===
 export const presetMaps = [

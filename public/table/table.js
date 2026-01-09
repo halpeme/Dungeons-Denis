@@ -21,6 +21,18 @@ let fogCtx = null;          // Context for fog canvas
 // Figure state
 let figures = [];
 
+// Grid state
+let gridConfig = {
+  enabled: false,
+  size: 50,
+  offsetX: 0,
+  offsetY: 0,
+  color: '#ffffff',
+  opacity: 0.3,
+  unit: 'ft',
+  unitScale: 5
+};
+
 // DOM Elements - initialized after DOM ready
 let elements = {};
 
@@ -36,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     joinBtn: document.getElementById('join-btn'),
     joinError: document.getElementById('join-error'),
     mapCanvas: document.getElementById('map-canvas'),
+    gridCanvas: document.getElementById('grid-canvas'),
   };
 
   initWebSocket();
@@ -56,6 +69,11 @@ function resizeCanvas() {
   const canvas = elements.mapCanvas;
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+
+  if (elements.gridCanvas) {
+    elements.gridCanvas.width = window.innerWidth;
+    elements.gridCanvas.height = window.innerHeight;
+  }
 }
 
 // WebSocket Setup
@@ -196,6 +214,13 @@ function initWebSocket() {
     }
   });
 
+  ws.on('map:gridConfig', (data) => {
+    gridConfig = { ...gridConfig, ...data };
+    if (currentMode === 'map') {
+      renderGrid();
+    }
+  });
+
   ws.on('error', (data) => {
     console.error('Server error:', data);
     elements.joinError.textContent = data.message;
@@ -328,11 +353,59 @@ function renderMap() {
   }
 
   ctx.restore();
+
+  // Render grid overlay
+  renderGrid();
 }
 
 // Draw figures on table display - uses shared figures module
 function drawFigures(ctx, figuresList) {
   sharedDrawFigures(ctx, figuresList);
+}
+
+// Render grid overlay
+function renderGrid() {
+  if (!gridConfig.enabled || !elements.gridCanvas || !mapImage) return;
+
+  const canvas = elements.gridCanvas;
+  const ctx = canvas.getContext('2d');
+
+  // Clear canvas
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Apply viewport transform
+  ctx.save();
+  applyViewportTransform(ctx);
+
+  // Draw grid lines
+  ctx.strokeStyle = gridConfig.color;
+  ctx.globalAlpha = gridConfig.opacity;
+  ctx.lineWidth = 1;
+
+  const gridSize = gridConfig.size;
+  const offsetX = gridConfig.offsetX;
+  const offsetY = gridConfig.offsetY;
+  const canvasWidth = mapImage.width;
+  const canvasHeight = mapImage.height;
+
+  // Draw vertical lines
+  for (let x = offsetX; x <= canvasWidth; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvasHeight);
+    ctx.stroke();
+  }
+
+  // Draw horizontal lines
+  for (let y = offsetY; y <= canvasHeight; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvasWidth, y);
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 // Interaction Event Listeners - uses shared touch-gestures module

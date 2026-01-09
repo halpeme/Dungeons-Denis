@@ -126,7 +126,9 @@ function handleMessage(socket: WebSocket, state: ConnectionState, message: WSMes
     // GM-only events (require valid gmToken)
     case 'map:state':
     case 'map:fogUpdate':
+    case 'map:fogPartial':
     case 'map:clear':
+    case 'map:gridConfig':
     case 'figures:update':
     case 'figures:clear':
     case 'handout:push':

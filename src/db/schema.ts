@@ -43,6 +43,15 @@ export function initializeSchema() {
     // Column already exists, ignore
   }
 
+  // Add grid_config column (migration for existing databases)
+  try {
+    db.exec(`
+      ALTER TABLE sessions ADD COLUMN grid_config TEXT DEFAULT NULL;
+    `);
+  } catch (err) {
+    // Column already exists, ignore
+  }
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_sessions_join_code ON sessions(join_code);

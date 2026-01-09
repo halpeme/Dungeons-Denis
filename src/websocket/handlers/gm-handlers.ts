@@ -185,6 +185,18 @@ function handleDisplayMode(ctx: GmContext, payload: { mode: 'blank' | 'map' | 'h
   });
 }
 
+// Handler for map:gridConfig
+function handleGridConfig(ctx: GmContext, payload: any) {
+  // Store grid config in session
+  sessionManager.updateSession(ctx.sessionId, { gridConfig: payload });
+
+  // Broadcast to table display
+  sessionManager.broadcastToTable(ctx.sessionId, {
+    type: 'map:gridConfig',
+    payload,
+  });
+}
+
 /**
  * GM Handler Registry
  * Maps message types to their handlers
@@ -194,6 +206,7 @@ export const gmHandlers: Record<string, GmHandler> = {
   'map:fogUpdate': handleMapFogUpdate,
   'map:fogPartial': handleMapFogPartial,
   'map:clear': handleMapClear,
+  'map:gridConfig': handleGridConfig,
   'figures:update': handleFiguresUpdate,
   'figures:clear': handleFiguresClear,
   'handout:push': handleHandoutPush,

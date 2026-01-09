@@ -58,7 +58,10 @@
 
     <!-- Map Mode -->
     <div id="display-map" class="display-mode absolute inset-0 hidden">
-      <canvas id="map-canvas" class="w-full h-full"></canvas>
+      <div class="relative w-full h-full">
+        <canvas id="map-canvas" class="absolute inset-0 w-full h-full"></canvas>
+        <canvas id="grid-canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+      </div>
     </div>
 
   </div>

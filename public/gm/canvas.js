@@ -7,8 +7,8 @@ import {
     mapCanvas, mapCtx, fogCanvas, fogCtx, figureCanvas, figureCtx,
     previewCanvas, previewCtx, fogDataCanvas, fogDataCtx,
     previewDataCanvas, previewDataCtx, mapImage, viewport, hasPreview,
-    updateCanvases, updateDrawing,
-    setMapImage, figures, activePing
+    updateCanvases, updateDrawing, updateGrid,
+    setMapImage, figures, activePing, gridCanvas, gridCtx, gridConfig
 } from './state.js';
 import { applyViewportTransform, updateCursor, setRenderAll, resetViewport } from './viewport.js';
 import { renderFiguresLayer, drawFigure } from './figures.js';
@@ -25,6 +25,9 @@ export function renderAll() {
     mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
     applyViewportTransform(mapCtx);
     mapCtx.drawImage(mapImage, 0, 0);
+
+    // Render grid
+    renderGridLayer();
 
     // Render fog
     renderFogLayer();
@@ -102,6 +105,55 @@ export function renderFogLayer() {
 }
 
 /**
+ * Render grid layer with viewport transform
+ */
+export function renderGridLayer() {
+    if (!gridCtx || !gridCanvas) return;
+
+    // Always clear the canvas first
+    gridCtx.setTransform(1, 0, 0, 1, 0, 0);
+    gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+
+    // Only draw if enabled and map exists
+    if (!gridConfig.enabled || !mapImage) return;
+
+    // Apply viewport transform
+    applyViewportTransform(gridCtx);
+
+    // Draw grid lines
+    gridCtx.save();
+    gridCtx.strokeStyle = gridConfig.color;
+    gridCtx.globalAlpha = gridConfig.opacity;
+    gridCtx.lineWidth = 1;
+
+    const gridSize = gridConfig.size;
+    const offsetX = gridConfig.offsetX;
+    const offsetY = gridConfig.offsetY;
+
+    // Calculate visible area in canvas coordinates
+    const canvasWidth = mapImage.width;
+    const canvasHeight = mapImage.height;
+
+    // Draw vertical lines
+    for (let x = offsetX; x <= canvasWidth; x += gridSize) {
+        gridCtx.beginPath();
+        gridCtx.moveTo(x, 0);
+        gridCtx.lineTo(x, canvasHeight);
+        gridCtx.stroke();
+    }
+
+    // Draw horizontal lines
+    for (let y = offsetY; y <= canvasHeight; y += gridSize) {
+        gridCtx.beginPath();
+        gridCtx.moveTo(0, y);
+        gridCtx.lineTo(canvasWidth, y);
+        gridCtx.stroke();
+    }
+
+    gridCtx.restore();
+}
+
+/**
  * Render preview layer with viewport transform
  */
 export function renderPreviewLayer() {
@@ -124,12 +176,17 @@ export function initMapCanvas() {
     const figure = document.getElementById('figure-canvas');
     const fog = document.getElementById('fog-canvas');
     const preview = document.getElementById('preview-canvas');
+    const grid = document.getElementById('grid-canvas');
 
     updateCanvases({
         mapCanvas: map,
         figureCanvas: figure,
         fogCanvas: fog,
         previewCanvas: preview
+    });
+
+    updateGrid({
+        gridCanvas: grid
     });
 
     if (!map || !fog) return;
@@ -139,6 +196,10 @@ export function initMapCanvas() {
         fogCtx: fog.getContext('2d'),
         figureCtx: figure?.getContext('2d'),
         previewCtx: preview?.getContext('2d')
+    });
+
+    updateGrid({
+        gridCtx: grid?.getContext('2d')
     });
 
     // Register renderAll with viewport module
@@ -201,6 +262,10 @@ export function setupMapCanvases(img) {
     // Set canvas dimensions
     mapCanvas.width = canvasWidth;
     mapCanvas.height = canvasHeight;
+    if (gridCanvas) {
+        gridCanvas.width = canvasWidth;
+        gridCanvas.height = canvasHeight;
+    }
     if (figureCanvas) {
         figureCanvas.width = canvasWidth;
         figureCanvas.height = canvasHeight;

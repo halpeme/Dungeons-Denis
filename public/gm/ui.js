@@ -5,12 +5,13 @@
 
 import {
     MODE, currentMode, setCurrentMode, isSettingsModalOpen, setIsSettingsModalOpen,
-    viewport, brushSize, setBrushSizeValue, elements
+    viewport, brushSize, setBrushSizeValue, elements, gridConfig, updateGrid
 } from './state.js';
 import { setZoom, setRotation, resetViewport, updateCursor, updateZoomDisplay } from './viewport.js';
 import { toggleFigureSelection, clearAllFigures } from './figures.js';
 import { clearFog, revealAll, confirmPreview, cancelPreview } from './fog.js';
 import { updateConnectionStatus as sharedUpdateStatus } from '../shared/connection-ui.js';
+import { renderAll } from './canvas.js';
 
 /**
  * Set interaction mode (zoom, draw, or figure)
@@ -317,6 +318,56 @@ export function initEventListeners(handlers) {
     // Rotation controls
     document.getElementById('rotate-left-btn')?.addEventListener('click', () => setRotation(viewport.rotation - 90));
     document.getElementById('rotate-right-btn')?.addEventListener('click', () => setRotation(viewport.rotation + 90));
+
+    // Grid controls
+    const sendGridConfig = () => {
+        if (ws) {
+            ws.send('map:gridConfig', { ...gridConfig });
+        }
+    };
+
+    document.getElementById('grid-enabled-toggle')?.addEventListener('change', (e) => {
+        updateGrid({ enabled: e.target.checked });
+        renderAll();
+        sendGridConfig();
+    });
+    document.getElementById('grid-size-input')?.addEventListener('input', (e) => {
+        updateGrid({ size: parseInt(e.target.value) });
+        renderAll();
+        sendGridConfig();
+    });
+    document.getElementById('grid-unit-select')?.addEventListener('change', (e) => {
+        updateGrid({ unit: e.target.value });
+        sendGridConfig();
+    });
+    document.getElementById('grid-unit-scale-input')?.addEventListener('input', (e) => {
+        updateGrid({ unitScale: parseFloat(e.target.value) });
+        sendGridConfig();
+    });
+    document.getElementById('grid-offset-x-input')?.addEventListener('input', (e) => {
+        updateGrid({ offsetX: parseInt(e.target.value) });
+        renderAll();
+        sendGridConfig();
+    });
+    document.getElementById('grid-offset-y-input')?.addEventListener('input', (e) => {
+        updateGrid({ offsetY: parseInt(e.target.value) });
+        renderAll();
+        sendGridConfig();
+    });
+    document.getElementById('grid-color-input')?.addEventListener('input', (e) => {
+        updateGrid({ color: e.target.value });
+        renderAll();
+        sendGridConfig();
+    });
+    document.getElementById('grid-opacity-input')?.addEventListener('input', (e) => {
+        updateGrid({ opacity: parseFloat(e.target.value) });
+        renderAll();
+        sendGridConfig();
+    });
+    document.getElementById('grid-snap-toggle')?.addEventListener('change', (e) => {
+        updateGrid({ snapToGrid: e.target.checked });
+        sendGridConfig();
+    });
 
     // Mode toggle
     document.getElementById('mode-zoom-btn')?.addEventListener('click', () => setMode(MODE.ZOOM));
