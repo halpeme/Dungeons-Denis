@@ -108,14 +108,33 @@ export function updateFigurePalette() {
 
 /**
  * Find figure at given canvas position - uses shared figures module
+ * Hit radius automatically scales with figure size
  */
 export function findFigureAtPosition(pos) {
-    return sharedFindFigure(figures, pos, 30);
+    return sharedFindFigure(figures, pos);
 }
 
 /**
  * Clear all figures from the map
  */
+/**
+ * Clear all figures without confirmation
+ * Used when loading a new map
+ */
+export function resetFigures() {
+    setFigures([]);
+    setSelectedFigureType(null);
+    setSelectedPlacedFigure(null);
+    clearPaletteSelection();
+
+    if (figureCtx && figureCanvas) {
+        figureCtx.setTransform(1, 0, 0, 1, 0, 0);
+        figureCtx.clearRect(0, 0, figureCanvas.width, figureCanvas.height);
+    }
+    updateFigurePalette();
+    if (ws) ws.send('figures:clear');
+}
+
 export function clearAllFigures() {
     if (!confirm('Clear all figures?')) return;
 

@@ -10,8 +10,27 @@ export const FIGURE_COLORS = {
   poi: '#f59e0b'      // amber-500
 };
 
-/** Default figure radius */
-export const FIGURE_RADIUS = 20;
+/** Base figure radius for desktop */
+const BASE_FIGURE_RADIUS = 20;
+
+/** Mobile breakpoint (pixels) */
+const MOBILE_BREAKPOINT = 768;
+
+/** Mobile size multiplier */
+const MOBILE_MULTIPLIER = 1.5;
+
+/**
+ * Get responsive figure radius based on screen size
+ * @returns {number} Figure radius
+ */
+export function getFigureRadius() {
+  return window.innerWidth < MOBILE_BREAKPOINT
+    ? BASE_FIGURE_RADIUS * MOBILE_MULTIPLIER
+    : BASE_FIGURE_RADIUS;
+}
+
+/** Default figure radius (for backwards compatibility) */
+export const FIGURE_RADIUS = BASE_FIGURE_RADIUS;
 
 /** Selection ring color */
 export const SELECTION_COLOR = '#fbbf24'; // amber-400
@@ -29,7 +48,7 @@ export function drawFigure(ctx, figure, options = {}) {
   const {
     isSelected = false,
     opacity = 1.0,
-    radius = FIGURE_RADIUS
+    radius = getFigureRadius()
   } = options;
 
   const { x, y } = figure.position;
@@ -94,15 +113,18 @@ export function drawFigures(ctx, figures, options = {}) {
  * Find figure at given position (hit testing)
  * @param {Array} figures - Array of figure objects
  * @param {{x: number, y: number}} pos - Position to test
- * @param {number} [hitRadius=30] - Hit detection radius
+ * @param {number} [hitRadius] - Hit detection radius (defaults to 1.5x figure radius)
  * @returns {Object|undefined} Figure at position, or undefined
  */
-export function findFigureAtPosition(figures, pos, hitRadius = 30) {
+export function findFigureAtPosition(figures, pos, hitRadius) {
+  // Default to 1.5x the current figure radius for better touch targets
+  const actualHitRadius = hitRadius !== undefined ? hitRadius : getFigureRadius() * 1.5;
+
   return figures.find(fig => {
     const dx = fig.position.x - pos.x;
     const dy = fig.position.y - pos.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    return dist < hitRadius;
+    return dist < actualHitRadius;
   });
 }
 

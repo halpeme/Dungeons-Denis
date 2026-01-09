@@ -21,7 +21,7 @@ import {
 
 import {
   generateFigureId, renderFigures, renderFiguresLayer, findFigureAtPosition,
-  clearPaletteSelection, updateFigurePalette, sendFiguresUpdate
+  clearPaletteSelection, updateFigurePalette, sendFiguresUpdate, resetFigures
 } from './figures.js';
 
 import {
@@ -123,6 +123,7 @@ function loadPresetMap(map) {
     showMapCanvas();
     setupMapCanvases(img);
     clearFog();
+    resetFigures();
     sendMapState(mapImage);
   };
   img.dataset.originalPath = map.path;
@@ -144,6 +145,7 @@ function handleMapUpload(e) {
       showMapCanvas();
       setupMapCanvases(img);
       clearFog();
+      resetFigures();
       sendMapState(mapImage);
     };
     img.src = event.target.result;

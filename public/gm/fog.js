@@ -13,17 +13,31 @@ let renderAllFn = null;
 export function setRenderAllForFog(fn) { renderAllFn = fn; }
 
 /**
- * Show preview action buttons
+ * Show preview action buttons and hide mode toggle + settings button
  */
 export function showPreviewActions() {
-    document.getElementById('preview-actions')?.classList.remove('hidden');
+    // Show confirm and cancel buttons (overlaying mode toggle and settings button positions)
+    document.getElementById('confirm-preview-btn')?.classList.remove('hidden');
+    document.getElementById('cancel-preview-btn')?.classList.remove('hidden');
+
+    // Hide mode toggle, settings button, and reveal size controls
+    document.getElementById('mode-toggle')?.classList.add('hidden');
+    document.getElementById('settings-toggle-btn')?.classList.add('hidden');
+    document.getElementById('reveal-size-controls')?.classList.add('hidden');
 }
 
 /**
- * Hide preview action buttons
+ * Hide preview action buttons and restore mode toggle + settings button
  */
 export function hidePreviewActions() {
-    document.getElementById('preview-actions')?.classList.add('hidden');
+    // Hide confirm and cancel buttons
+    document.getElementById('confirm-preview-btn')?.classList.add('hidden');
+    document.getElementById('cancel-preview-btn')?.classList.add('hidden');
+
+    // Show mode toggle and settings button again
+    document.getElementById('mode-toggle')?.classList.remove('hidden');
+    document.getElementById('settings-toggle-btn')?.classList.remove('hidden');
+    // Note: reveal-size-controls visibility is handled by mode switcher in ui.js
 }
 
 /**

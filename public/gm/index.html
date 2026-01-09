@@ -133,17 +133,17 @@
               </div>
             </div>
 
-            <!-- Confirm/Cancel buttons (overlay on map when preview exists) -->
-            <div id="preview-actions" class="hidden absolute safe-bottom-16 left-2 right-2 z-50 flex gap-2">
-              <button id="cancel-preview-btn"
-                class="flex-1 bg-gray-700/90 hover:bg-gray-600 p-3 rounded-lg font-bold shadow-lg backdrop-blur">
-                Cancel
-              </button>
-              <button id="confirm-preview-btn"
-                class="flex-1 bg-green-600/90 hover:bg-green-500 p-3 rounded-lg font-bold shadow-lg backdrop-blur">
-                Confirm
-              </button>
-            </div>
+            <!-- Cancel button - overlays settings button position when preview exists -->
+            <button id="cancel-preview-btn"
+              class="hidden fixed safe-bottom-4 right-4 z-50 bg-gray-700/90 hover:bg-gray-600 p-3 rounded-lg font-bold shadow-lg backdrop-blur min-w-[120px]">
+              Cancel
+            </button>
+
+            <!-- Confirm button - overlays mode toggle position when preview exists -->
+            <button id="confirm-preview-btn"
+              class="hidden fixed safe-bottom-4 left-4 z-50 bg-green-600/90 hover:bg-green-500 p-3 rounded-lg font-bold shadow-lg backdrop-blur min-w-[120px]">
+              Confirm
+            </button>
           </div>
 
           <!-- Reveal Size Controls (S/M/L) - Floating above mode toggle -->

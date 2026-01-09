@@ -45,7 +45,7 @@ export function renderAll() {
 let lastPingLog = 0;
 
 /**
- * Render ping layer
+ * Render ping layer - Cooler, faster animation with multiple rings
  */
 export function renderPingLayer() {
     if (!activePing || !previewCtx) return;
@@ -56,30 +56,54 @@ export function renderPingLayer() {
     }
 
     const age = Date.now() - activePing.timestamp;
-    const duration = 2000; // 2 seconds animation
+    const duration = 1200; // 1.2 seconds - faster animation
 
     if (age > duration) return;
 
     const progress = age / duration;
-    const maxRadius = 100;
-    const currentRadius = 10 + (maxRadius * (1 - Math.pow(1 - progress, 3))); // Ease out
-    const opacity = 1 - progress;
+    const maxRadius = 120;
 
     previewCtx.save();
-    previewCtx.shadowBlur = 0;
-    previewCtx.globalAlpha = 1;
 
-    previewCtx.beginPath();
-    previewCtx.arc(activePing.x, activePing.y, currentRadius, 0, Math.PI * 2);
-    previewCtx.strokeStyle = `rgba(245, 158, 11, ${opacity})`;
-    previewCtx.lineWidth = 4;
-    previewCtx.stroke();
+    // Draw multiple expanding rings with different timings
+    for (let i = 0; i < 3; i++) {
+        const ringDelay = i * 0.15; // Stagger the rings
+        const ringProgress = Math.max(0, Math.min(1, (progress - ringDelay) / (1 - ringDelay)));
 
-    // Inner dot
-    previewCtx.beginPath();
-    previewCtx.arc(activePing.x, activePing.y, 5, 0, Math.PI * 2);
-    previewCtx.fillStyle = `rgba(245, 158, 11, ${opacity})`;
-    previewCtx.fill();
+        if (ringProgress > 0) {
+            const easeOut = 1 - Math.pow(1 - ringProgress, 3);
+            const ringRadius = 15 + (maxRadius * easeOut);
+            const ringOpacity = (1 - ringProgress) * (1 - i * 0.2); // Each ring slightly dimmer
+
+            previewCtx.beginPath();
+            previewCtx.arc(activePing.x, activePing.y, ringRadius, 0, Math.PI * 2);
+            previewCtx.strokeStyle = `rgba(245, 158, 11, ${ringOpacity})`;
+            previewCtx.lineWidth = 4 - i; // Each ring slightly thinner
+            previewCtx.stroke();
+        }
+    }
+
+    // Pulsing inner dot with glow
+    const pulseScale = 1 + Math.sin(progress * Math.PI) * 0.5; // Pulse during animation
+    const dotOpacity = 1 - Math.pow(progress, 2);
+
+    if (dotOpacity > 0) {
+        // Glow effect
+        previewCtx.shadowBlur = 20;
+        previewCtx.shadowColor = `rgba(245, 158, 11, ${dotOpacity * 0.8})`;
+
+        previewCtx.beginPath();
+        previewCtx.arc(activePing.x, activePing.y, 8 * pulseScale, 0, Math.PI * 2);
+        previewCtx.fillStyle = `rgba(245, 158, 11, ${dotOpacity})`;
+        previewCtx.fill();
+
+        // Bright center
+        previewCtx.shadowBlur = 0;
+        previewCtx.beginPath();
+        previewCtx.arc(activePing.x, activePing.y, 4 * pulseScale, 0, Math.PI * 2);
+        previewCtx.fillStyle = `rgba(255, 255, 255, ${dotOpacity})`;
+        previewCtx.fill();
+    }
 
     previewCtx.restore();
 

@@ -35,6 +35,7 @@ let gridConfig = {
 
 // DOM Elements - initialized after DOM ready
 let elements = {};
+let resetButton = null; // Reset zoom button
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -268,6 +269,9 @@ let viewport = {
   rotation: 0
 };
 
+// Default viewport state (set after resetViewport)
+let defaultViewport = null;
+
 // Constants
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
@@ -288,6 +292,24 @@ function applyViewportTransform(ctx) {
 function zoomAtPoint(clientX, clientY, scaleFactor) {
   sharedZoomAtPoint(clientX, clientY, scaleFactor, elements.mapCanvas, viewport, MIN_ZOOM, MAX_ZOOM);
   renderMap();
+  updateResetButtonVisibility();
+}
+
+/**
+ * Update reset button visibility based on whether viewport is modified
+ */
+function updateResetButtonVisibility() {
+  if (!resetButton || !defaultViewport) return;
+
+  const isZoomed = Math.abs(viewport.scale - defaultViewport.scale) > 0.01;
+  const isRotated = viewport.rotation !== defaultViewport.rotation;
+  const isPanned = Math.abs(viewport.x - defaultViewport.x) > 10 || Math.abs(viewport.y - defaultViewport.y) > 10;
+
+  if (isZoomed || isRotated || isPanned) {
+    resetButton.classList.remove('hidden');
+  } else {
+    resetButton.classList.add('hidden');
+  }
 }
 
 function resetViewport() {
@@ -306,7 +328,11 @@ function resetViewport() {
   viewport.y = (canvas.height - mapImage.height * scale) / 2;
   viewport.rotation = 0;
 
+  // Save as default viewport state
+  defaultViewport = { ...viewport };
+
   renderMap();
+  updateResetButtonVisibility();
 }
 
 // Map Rendering - Image-based fog of war
@@ -431,7 +457,10 @@ function initInteractionListeners() {
     element: canvas,
     canvas: canvas,
     viewport: viewport,
-    onUpdate: renderMap
+    onUpdate: () => {
+      renderMap();
+      updateResetButtonVisibility();
+    }
   });
 
   // Touch Gestures (Pinch/Pan) - using shared handler
@@ -442,24 +471,40 @@ function initInteractionListeners() {
     viewport: viewport,
     minZoom: MIN_ZOOM,
     maxZoom: MAX_ZOOM,
-    onUpdate: renderMap,
+    onUpdate: () => {
+      renderMap();
+      updateResetButtonVisibility();
+    },
     useStabilization: false  // Table uses simpler immediate response
   });
 
-  // Double tap for ping
+  // Double tap for ping with proximity detection
   let lastTap = 0;
+  let lastTapPos = { x: 0, y: 0 };
+  const DOUBLE_TAP_TIME = 500; // milliseconds
+  const DOUBLE_TAP_DISTANCE = 100; // pixels - max distance between taps
+
   canvas.addEventListener('touchend', (e) => {
     const currentTime = new Date().getTime();
     const tapLength = currentTime - lastTap;
-    if (tapLength < 500 && tapLength > 0 && e.touches.length === 0) {
-      // Check if it was a double tap (not during pan/pinch)
-      if (!gestureHandler.isPanning && !gestureHandler.isPinching) {
-        const touch = e.changedTouches[0];
-        handlePing(touch.clientX, touch.clientY);
+    const touch = e.changedTouches[0];
+    const tapPos = { x: touch.clientX, y: touch.clientY };
+
+    // Calculate distance from last tap
+    const dx = tapPos.x - lastTapPos.x;
+    const dy = tapPos.y - lastTapPos.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (tapLength < DOUBLE_TAP_TIME && tapLength > 0 && e.touches.length === 0) {
+      // Check if it was a double tap (not during pan/pinch) AND within proximity
+      if (!gestureHandler.isPanning && !gestureHandler.isPinching && distance < DOUBLE_TAP_DISTANCE) {
+        handlePing(tapPos.x, tapPos.y);
+        e.preventDefault();
       }
-      e.preventDefault();
     }
+
     lastTap = currentTime;
+    lastTapPos = tapPos;
   });
 
   // Mouse double click for desktop ping
@@ -501,8 +546,8 @@ function showPingRipple(x, y) {
   ripple.style.top = `${y}px`;
   document.body.appendChild(ripple);
 
-  // Animation handled by CSS
-  setTimeout(() => ripple.remove(), 1000);
+  // Animation handled by CSS - 600ms for faster, cooler effect
+  setTimeout(() => ripple.remove(), 600);
 }
 
 // UI Controls
@@ -511,7 +556,7 @@ function createUIControls() {
   container.className = 'fixed bottom-4 right-4 flex gap-2 z-50';
 
   const resetBtn = document.createElement('button');
-  resetBtn.className = 'bg-gray-800 text-amber-500 p-3 rounded-full shadow-lg border border-amber-900/50 hover:bg-gray-700 active:scale-95 transition-all';
+  resetBtn.className = 'hidden bg-gray-800 text-amber-500 p-3 rounded-full shadow-lg border border-amber-900/50 hover:bg-gray-700 active:scale-95 transition-all';
   resetBtn.innerHTML = `
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -520,6 +565,9 @@ function createUIControls() {
   `;
   resetBtn.title = 'Reset Zoom';
   resetBtn.onclick = resetViewport;
+
+  // Store reference for visibility toggling
+  resetButton = resetBtn;
 
   container.appendChild(resetBtn);
   document.body.appendChild(container);

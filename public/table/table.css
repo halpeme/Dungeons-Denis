@@ -140,31 +140,70 @@ body.cursor-hidden {
   animation: pulse 1s infinite;
 }
 
-/* Ping Ripple */
+/* Ping Ripple - Cooler faster animation */
 .ping-ripple {
   position: fixed;
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: rgba(245, 158, 11, 0.8);
-  border: 2px solid #fff;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  animation: ping-expand 1s ease-out forwards;
   z-index: 1000;
 }
 
-@keyframes ping-expand {
-  0% {
-    width: 20px;
-    height: 20px;
-    opacity: 1;
-  }
+/* Multiple expanding rings */
+.ping-ripple::before,
+.ping-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid rgba(245, 158, 11, 0.9);
+  animation: ping-ring 0.6s ease-out forwards;
+}
 
+.ping-ripple::after {
+  animation-delay: 0.15s;
+  border-width: 2px;
+}
+
+/* Inner pulsing dot */
+.ping-ripple {
+  background: radial-gradient(circle, rgba(245, 158, 11, 1) 0%, rgba(245, 158, 11, 0.9) 60%, rgba(245, 158, 11, 0) 100%);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.8), 0 0 10px rgba(245, 158, 11, 0.6);
+  animation: ping-pulse 0.6s ease-out forwards;
+}
+
+@keyframes ping-ring {
+  0% {
+    width: 30px;
+    height: 30px;
+    opacity: 1;
+    border-width: 3px;
+  }
   100% {
-    width: 100px;
-    height: 100px;
+    width: 150px;
+    height: 150px;
     opacity: 0;
     border-width: 0;
+  }
+}
+
+@keyframes ping-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
   }
 }

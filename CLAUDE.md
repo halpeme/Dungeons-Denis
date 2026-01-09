@@ -1,80 +1,72 @@
 # CLAUDE.md - Project Instructions
 
-## Project Overview
+## Overview
 
-**Dungeons & Denis** - A local fog-of-war map controller for in-person tabletop RPGs (Splittermond).
+**Dungeons & Denis** - Local fog-of-war map controller for in-person tabletop RPGs (Splittermond).
 
-- **Single-session mode**: Designed for local WiFi use with friends
-- **GM Controller** (`/gm`): Mobile-friendly interface for revealing/hiding map areas (auto-connects)
-- **Table Display** (`/table`): Full-screen display for TV/monitor (auto-joins active session)
-- **Real-time sync**: WebSocket communication between GM and table
+| Endpoint | Purpose |
+|----------|---------|
+| `/gm` | Mobile GM controller - reveal/hide map areas |
+| `/table` | Full-screen TV display - auto-joins session |
 
-## Tech Stack
-
-- **Backend**: Node.js, Fastify, TypeScript, SQLite (better-sqlite3)
-- **Frontend**: Vanilla JS, Tailwind CSS (CDN), HTML5 Canvas
-- **Build**: tsx (TypeScript execution), Vitest (testing)
+**Tech**: Node.js + Fastify + TypeScript + SQLite | Vanilla JS + Canvas + Tailwind CDN
 
 ## Commands
 
-npm run dev           # Start dev server (port 3001) - PRIMARY DEV COMMAND
-npm run tray:dev      # Start tray app in dev mode
-npm run build:dist    # Create Windows distribution (dist-release/) - ONLY for release
+```bash
+npm run dev           # Start dev server (port 3001) ← PRIMARY
+npm run test          # Run Vitest tests
 npm run build         # Compile TypeScript
-npm run test          # Run tests
 npm run download-maps # Download Splittermond preset maps
 ```
 
-## Development Workflow
-
-- **Always use `npm run dev`** for local development.
-- Do **not** build the distribution (`npm run build:dist`) during development; it's slow and meant for final release only.
+**IMPORTANT**: Do NOT run `npm run build:dist` during development—it's slow and for final release only.
 
 ## Project Structure
 
 ```
-public/
-  gm/           # GM controller (mobile UI)
-    gm.js       # Main controller logic
-    gm.css      # Styles
-    index.html  # GM interface
-  table/        # Table display (TV/monitor)
-  shared/       # Shared WebSocket client
-  maps/presets/ # Downloaded Splittermond maps (.jpg)
 src/
-  server.ts     # Fastify server entry
-  websocket/    # WebSocket handlers
-  session/      # Session management
-  db/           # SQLite database
-scripts/
-  download-maps.js  # PDF to JPG converter for preset maps
+  server.ts           # Fastify entry point
+  config.ts           # Port, paths, constants
+  tray/wrapper.ts     # System tray + server lifecycle
+  websocket/          # WS handlers (events.ts, handlers/)
+  session/            # Session state (manager.ts, types.ts)
+  db/                 # SQLite (schema.ts, connection.ts)
+  routes/api.ts       # REST endpoints
+public/
+  gm/                 # GM controller (gm.js, state.js, canvas.js, fog.js, ui.js)
+  table/              # Table display (table.js)
+  shared/             # Shared modules (ws-client.js, viewport.js, touch-gestures.js)
+scripts/              # Build & utility scripts
 ```
+
+## Code Style
+
+- **Backend**: TypeScript, ES modules, async/await
+- **Frontend**: Vanilla JS (no framework), module pattern with explicit exports
+- **State**: GM uses centralized `state.js` with batch updaters
+- **Canvas**: Multi-layer system with offscreen buffers (see architecture.md)
 
 ## Documentation
 
-- [Architecture Notes](agent_docs/architecture.md) - Canvas system, viewport transforms, and input handling logic.
-
+- [Architecture Notes](agent_docs/architecture.md) — Canvas layers, viewport transforms, touch handling
 
 ## Critical Warnings
 
-### DO NOT use `taskkill` or `Stop-Process` to kill Node processes broadly
-Using `taskkill /F /IM node.exe` or `Stop-Process -Name node` will kill **ALL** Node processes on the system.
+### NEVER kill Node processes broadly
 
-**Known Consequence:**
-- Kills **Remote Mouse** server (and likely other Electron/Node-based tools).
-- Kills Claude Code itself.
+```bash
+# ❌ NEVER RUN - kills Remote Mouse, Claude Code, and other tools
+taskkill /F /IM node.exe
+Stop-Process -Name node
+```
 
-**Safe alternatives (Manual):**
-1. Use `Ctrl+C` in the terminal.
-2. Kill specific PIDs: `taskkill /F /PID <pid>`
-3. Relies on the **App's Internal Cleanup**: The app (`src/tray/wrapper.ts`) safely cleans up port 3001 only by checking strict socket addresses. It is safe to run.
+**Safe alternatives:**
+1. `Ctrl+C` in terminal
+2. `taskkill /F /PID <specific-pid>`
+3. App's internal cleanup handles port 3001 safely
 
-**Never run:**
-- `taskkill /F /IM node.exe`
-- `Stop-Process -Name node`
-- `taskkill /F /IM cmd.exe`
-
-## Git Repository
+## Repository
 
 - **Remote**: https://github.com/halpeme/Dungeons-Denis
 - **Branch**: main
