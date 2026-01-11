@@ -133,17 +133,6 @@
               </div>
             </div>
 
-            <!-- Cancel button - overlays settings button position when preview exists -->
-            <button id="cancel-preview-btn"
-              class="hidden fixed safe-bottom-4 right-4 z-50 bg-gray-700/90 hover:bg-gray-600 p-3 rounded-lg font-bold shadow-lg backdrop-blur min-w-[120px]">
-              Cancel
-            </button>
-
-            <!-- Confirm button - overlays mode toggle position when preview exists -->
-            <button id="confirm-preview-btn"
-              class="hidden fixed safe-bottom-4 left-4 z-50 bg-green-600/90 hover:bg-green-500 p-3 rounded-lg font-bold shadow-lg backdrop-blur min-w-[120px]">
-              Confirm
-            </button>
           </div>
 
           <!-- Reveal Size Controls (S/M/L) - Floating above mode toggle -->
@@ -212,6 +201,19 @@
                   <button class="figure-btn-float" data-type="poi">★</button>
                   <button id="clear-figures-btn-float" class="text-xs text-red-400 hover:text-red-300 px-2">Clear
                     All</button>
+                </div>
+                <!-- Effects Row -->
+                <div class="flex flex-col gap-1 border-t border-gray-700 pt-1 mt-1">
+                  <div class="text-xs text-gray-400 px-1">Effects</div>
+                  <div class="flex gap-1 flex-wrap">
+                    <button class="figure-btn-float" data-type="fire" title="Fire">🔥</button>
+                    <button class="figure-btn-float" data-type="rain" title="Rain">💧</button>
+                    <button class="figure-btn-float" data-type="wind" title="Wind">💨</button>
+                    <button class="figure-btn-float" data-type="darkness" title="Darkness">🌑</button>
+                    <button class="figure-btn-float" data-type="magic-circle" title="Magic Circle">✨</button>
+                    <button class="figure-btn-float" data-type="barrier" title="Barrier">🛡️</button>
+                    <button class="figure-btn-float" data-type="aura" title="Aura">⭐</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -376,12 +378,22 @@
 
   <!-- Tab Bar -->
   <nav class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700">
-    <div class="flex">
+    <!-- Normal navigation (Map/Settings) -->
+    <div id="nav-normal" class="flex">
       <button class="tab-btn flex-1 py-4 text-center text-sm font-medium text-amber-400" data-tab="map">
         Map
       </button>
       <button class="tab-btn flex-1 py-4 text-center text-sm font-medium text-gray-400" data-tab="settings">
         Settings
+      </button>
+    </div>
+    <!-- Confirmation navigation (Confirm/Cancel) - shown during preview -->
+    <div id="nav-confirm" class="hidden flex">
+      <button id="confirm-preview-btn" class="flex-1 py-4 text-center text-sm font-medium bg-green-600 hover:bg-green-500 text-white">
+        Confirm
+      </button>
+      <button id="cancel-preview-btn" class="flex-1 py-4 text-center text-sm font-medium bg-gray-700 hover:bg-gray-600 text-white">
+        Cancel
       </button>
     </div>
   </nav>

@@ -16,23 +16,22 @@ export function setRenderAllForFog(fn) { renderAllFn = fn; }
  * Show preview action buttons and hide mode toggle + settings button
  */
 export function showPreviewActions() {
-    // Show confirm and cancel buttons (overlaying mode toggle and settings button positions)
-    document.getElementById('confirm-preview-btn')?.classList.remove('hidden');
-    document.getElementById('cancel-preview-btn')?.classList.remove('hidden');
+    // Switch bottom nav to confirmation mode
+    document.getElementById('nav-normal')?.classList.add('hidden');
+    document.getElementById('nav-confirm')?.classList.remove('hidden');
 
-    // Hide mode toggle, settings button, and reveal size controls
+    // Hide mode toggle and settings button (but keep reveal size controls visible)
     document.getElementById('mode-toggle')?.classList.add('hidden');
     document.getElementById('settings-toggle-btn')?.classList.add('hidden');
-    document.getElementById('reveal-size-controls')?.classList.add('hidden');
 }
 
 /**
  * Hide preview action buttons and restore mode toggle + settings button
  */
 export function hidePreviewActions() {
-    // Hide confirm and cancel buttons
-    document.getElementById('confirm-preview-btn')?.classList.add('hidden');
-    document.getElementById('cancel-preview-btn')?.classList.add('hidden');
+    // Switch bottom nav back to normal mode
+    document.getElementById('nav-confirm')?.classList.add('hidden');
+    document.getElementById('nav-normal')?.classList.remove('hidden');
 
     // Show mode toggle and settings button again
     document.getElementById('mode-toggle')?.classList.remove('hidden');
