@@ -177,6 +177,32 @@ export function showControlPanel() {
 }
 
 /**
+ * Update display mode status in the status bar
+ */
+export function updateDisplayModeStatus(mode) {
+    if (!elements.displayModeSelect) return;
+
+    if (!mode) {
+        elements.displayModeSelect.classList.add('hidden');
+        return;
+    }
+
+    // Update dropdown value
+    elements.displayModeSelect.value = mode;
+    elements.displayModeSelect.classList.remove('hidden');
+
+    // Subtle styling: Update parent's border and text brightness
+    const container = elements.displayModeSelect.parentElement;
+    if (container) {
+        container.className = 'border-b transition-all duration-300 ' +
+            (mode === 'map' ? 'border-amber-500/60' : 'border-amber-500/20');
+    }
+
+    elements.displayModeSelect.className = 'bg-transparent font-mono uppercase focus:outline-none transition-all duration-300 ' +
+        (mode === 'map' ? 'text-amber-400 text-xs' : 'text-amber-500/70 text-xs');
+}
+
+/**
  * Setup copy button functionality
  */
 function setupCopyButton(btnId, inputId) {
@@ -384,6 +410,10 @@ export function initEventListeners(handlers) {
     // Display mode
     document.querySelectorAll('.display-mode-btn').forEach(btn => {
         btn.addEventListener('click', () => ws?.send('display:mode', { mode: btn.dataset.mode }));
+    });
+
+    elements.displayModeSelect?.addEventListener('change', (e) => {
+        ws?.send('display:mode', { mode: e.target.value });
     });
 
     // Copy buttons

@@ -27,7 +27,7 @@ function handleMapState(ctx: GmContext, payload: { mapImage: string; fogMask: st
     payload: { mapImage, fogMask },
   });
 
-  sessionManager.broadcastToTable(ctx.sessionId, {
+  sessionManager.broadcast(ctx.sessionId, {
     type: 'display:mode',
     payload: { mode: 'map' },
   });
@@ -64,7 +64,7 @@ function handleMapClear(ctx: GmContext) {
   });
 
   sessionManager.broadcastToTable(ctx.sessionId, { type: 'map:clear' });
-  sessionManager.broadcastToTable(ctx.sessionId, {
+  sessionManager.broadcast(ctx.sessionId, {
     type: 'display:mode',
     payload: { mode: 'blank' },
   });
@@ -89,97 +89,13 @@ function handleFiguresClear(ctx: GmContext) {
   sessionManager.broadcastToTable(ctx.sessionId, { type: 'figures:clear' });
 }
 
-// Handler for handout:push
-function handleHandoutPush(ctx: GmContext, payload: { imageUrl: string }) {
-  const { imageUrl } = payload;
-
-  sessionManager.updateSession(ctx.sessionId, {
-    displayMode: 'handout',
-    currentHandout: imageUrl,
-  });
-
-  sessionManager.broadcastToTable(ctx.sessionId, {
-    type: 'handout:display',
-    payload: { imageUrl },
-  });
-
-  sessionManager.broadcastToTable(ctx.sessionId, {
-    type: 'display:mode',
-    payload: { mode: 'handout' },
-  });
-}
-
-// Handler for handout:clear
-function handleHandoutClear(ctx: GmContext) {
-  sessionManager.updateSession(ctx.sessionId, {
-    displayMode: 'map',
-    currentHandout: null,
-  });
-
-  sessionManager.broadcastToTable(ctx.sessionId, { type: 'handout:clear' });
-  sessionManager.broadcastToTable(ctx.sessionId, {
-    type: 'display:mode',
-    payload: { mode: 'map' },
-  });
-}
-
-// Handler for decision:push
-function handleDecisionPush(ctx: GmContext, payload: { id: string; title: string; options: { id: string; text: string }[] }) {
-  sessionManager.updateSession(ctx.sessionId, {
-    displayMode: 'decision',
-    currentDecision: payload,
-  });
-
-  sessionManager.broadcastToTable(ctx.sessionId, {
-    type: 'decision:display',
-    payload,
-  });
-
-  sessionManager.broadcastToTable(ctx.sessionId, {
-    type: 'display:mode',
-    payload: { mode: 'decision' },
-  });
-}
-
-// Handler for decision:clear
-function handleDecisionClear(ctx: GmContext) {
-  sessionManager.updateSession(ctx.sessionId, {
-    displayMode: 'map',
-    currentDecision: null,
-  });
-
-  sessionManager.broadcastToTable(ctx.sessionId, { type: 'decision:clear' });
-  sessionManager.broadcastToTable(ctx.sessionId, {
-    type: 'display:mode',
-    payload: { mode: 'map' },
-  });
-}
-
-// Handler for puzzle:push
-function handlePuzzlePush(ctx: GmContext, payload: { id: string; type: string; data: unknown }) {
-  sessionManager.updateSession(ctx.sessionId, {
-    displayMode: 'puzzle',
-    currentPuzzle: payload as any,
-  });
-
-  sessionManager.broadcastToTable(ctx.sessionId, {
-    type: 'puzzle:display',
-    payload,
-  });
-
-  sessionManager.broadcastToTable(ctx.sessionId, {
-    type: 'display:mode',
-    payload: { mode: 'puzzle' },
-  });
-}
-
 // Handler for display:mode
-function handleDisplayMode(ctx: GmContext, payload: { mode: 'blank' | 'map' | 'handout' | 'decision' | 'puzzle' }) {
+function handleDisplayMode(ctx: GmContext, payload: { mode: 'blank' | 'map' }) {
   const { mode } = payload;
 
   sessionManager.updateSession(ctx.sessionId, { displayMode: mode });
 
-  sessionManager.broadcastToTable(ctx.sessionId, {
+  sessionManager.broadcast(ctx.sessionId, {
     type: 'display:mode',
     payload: { mode },
   });
@@ -209,11 +125,6 @@ export const gmHandlers: Record<string, GmHandler> = {
   'map:gridConfig': handleGridConfig,
   'figures:update': handleFiguresUpdate,
   'figures:clear': handleFiguresClear,
-  'handout:push': handleHandoutPush,
-  'handout:clear': handleHandoutClear,
-  'decision:push': handleDecisionPush,
-  'decision:clear': handleDecisionClear,
-  'puzzle:push': handlePuzzlePush,
   'display:mode': handleDisplayMode,
 };
 

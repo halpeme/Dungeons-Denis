@@ -36,24 +36,9 @@ export interface Session {
   fogState: number[][];
   partyPosition: { x: number; y: number };
   figures: Figure[];
-  displayMode: 'blank' | 'map' | 'handout' | 'decision' | 'puzzle';
-  currentHandout: string | null;
-  currentDecision: Decision | null;
-  currentPuzzle: Puzzle | null;
+  displayMode: 'blank' | 'map';
   createdAt: number;
   updatedAt: number;
-}
-
-export interface Decision {
-  id: string;
-  title: string;
-  options: { id: string; text: string }[];
-}
-
-export interface Puzzle {
-  id: string;
-  type: 'choice' | 'riddle' | 'hotspot' | 'sequence';
-  data: Record<string, unknown>;
 }
 
 export interface SessionConnection {
@@ -72,9 +57,6 @@ export interface SessionRow {
   figures: string;
   grid_config: string | null;
   display_mode: string;
-  current_handout: string | null;
-  current_decision: string | null;
-  current_puzzle: string | null;
   created_at: number;
   updated_at: number;
 }

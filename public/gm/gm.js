@@ -34,7 +34,7 @@ import {
 } from './canvas.js';
 
 import {
-  initEventListeners, setMode, updateConnectionStatus, showJoinCode, showControlPanel
+  initEventListeners, setMode, updateConnectionStatus, showJoinCode, showControlPanel, updateDisplayModeStatus
 } from './ui.js';
 
 import { createTouchGestureHandler, createWheelZoomHandler } from '../shared/touch-gestures.js';
@@ -447,6 +447,11 @@ function initWebSocket() {
 
   wsClient.on('disconnected', () => updateConnectionStatus('disconnected'));
 
+  wsClient.on('display:mode', (data) => {
+    updateSession({ displayMode: data.mode });
+    updateDisplayModeStatus(data.mode);
+  });
+
   wsClient.on('reconnecting', (data) => {
     updateConnectionStatus('reconnecting', data);
   });
@@ -476,6 +481,10 @@ function initWebSocket() {
     if (data.figures?.length > 0) {
       setFigures(data.figures);
       renderFigures();
+    }
+    if (data.displayMode) {
+      updateSession({ displayMode: data.displayMode });
+      updateDisplayModeStatus(data.displayMode);
     }
   });
 

@@ -8,6 +8,7 @@ export let ws = null;
 export let sessionId = null;
 export let gmToken = null;
 export let joinCode = null;
+export let displayMode = 'blank';
 
 // === MAP/FOG STATE ===
 export let mapImage = null;
@@ -79,6 +80,7 @@ export function updateSession(updates) {
     if ('sessionId' in updates) sessionId = updates.sessionId;
     if ('gmToken' in updates) gmToken = updates.gmToken;
     if ('joinCode' in updates) joinCode = updates.joinCode;
+    if ('displayMode' in updates) displayMode = updates.displayMode;
 }
 
 export function updateCanvases(updates) {
@@ -237,6 +239,7 @@ export const elements = {
     joinCode: null,
     tableConnected: null,
     settingsJoinCode: null,
+    displayModeSelect: null,
 };
 
 // Initialize DOM element references (call after DOMContentLoaded)
@@ -250,4 +253,5 @@ export function initElements() {
     elements.joinCode = document.getElementById('join-code');
     elements.tableConnected = document.getElementById('table-connected');
     elements.settingsJoinCode = document.getElementById('settings-join-code');
+    elements.displayModeSelect = document.getElementById('display-mode-select');
 }

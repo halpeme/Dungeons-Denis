@@ -13,7 +13,20 @@
 <body class="bg-gray-900 text-white">
   <!-- Connection Status Bar -->
   <div id="status-bar" class="fixed top-0 left-0 right-0 bg-gray-800 p-2 flex justify-between items-center z-50 h-10">
-    <span class="text-amber-400 font-bold">Dungeons & Denis</span>
+    <div class="flex items-center gap-3">
+      <span class="text-amber-400 font-bold">Dungeons & Denis</span>
+    </div>
+
+    <div class="absolute left-1/2 -translate-x-1/2">
+      <div class="border-b border-amber-500/30 pb-0.5">
+        <select id="display-mode-select"
+          class="hidden text-xs bg-transparent text-amber-400 px-1 py-0 font-mono uppercase focus:outline-none transition-all">
+          <option value="blank">Blank</option>
+          <option value="map">Map</option>
+        </select>
+      </div>
+    </div>
+
     <div id="connection-status" class="flex items-center gap-2">
       <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" id="status-dot"></span>
       <span id="status-text" class="text-sm">Connecting...</span>
@@ -115,10 +128,12 @@
             <div id="map-viewport" class="relative bg-black rounded-lg mx-auto overflow-hidden">
               <div id="map-canvas-container" class="relative">
                 <canvas id="map-canvas" class="absolute inset-0 w-full h-full" style="z-index: 1;"></canvas>
-                <canvas id="grid-canvas" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 2;"></canvas>
+                <canvas id="grid-canvas" class="absolute inset-0 w-full h-full pointer-events-none"
+                  style="z-index: 2;"></canvas>
                 <canvas id="figure-canvas" class="absolute inset-0 w-full h-full" style="z-index: 3;"></canvas>
                 <canvas id="fog-canvas" class="absolute inset-0 w-full h-full" style="z-index: 4;"></canvas>
-                <canvas id="preview-canvas" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 5;"></canvas>
+                <canvas id="preview-canvas" class="absolute inset-0 w-full h-full pointer-events-none"
+                  style="z-index: 5;"></canvas>
               </div>
               <!-- Vertical Zoom Slider (Overlay) -->
               <div
@@ -177,8 +192,7 @@
           <div id="figure-palette-floating" class="hidden fixed z-40"
             style="left: 1rem; top: 50%; transform: translateY(-50%);">
             <!-- Palette (shown when Figure mode active) -->
-            <div id="figure-palette-expanded"
-              class="bg-gray-800 rounded-lg shadow-xl p-2 min-w-max">
+            <div id="figure-palette-expanded" class="bg-gray-800 rounded-lg shadow-xl p-2 min-w-max">
               <div class="flex flex-col gap-1">
                 <!-- Enemies Row -->
                 <div class="flex gap-1">
@@ -273,7 +287,9 @@
                   <label class="text-xs text-gray-300">Enable Grid</label>
                   <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="grid-enabled-toggle" class="sr-only peer">
-                    <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    <div
+                      class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500">
+                    </div>
                   </label>
                 </div>
                 <!-- Grid Size -->
@@ -319,8 +335,7 @@
                   </div>
                   <div class="flex-1">
                     <label class="text-xs text-gray-300 block mb-1">Opacity</label>
-                    <input type="range" id="grid-opacity-input" value="0.3" min="0.1" max="1" step="0.1"
-                      class="w-full">
+                    <input type="range" id="grid-opacity-input" value="0.3" min="0.1" max="1" step="0.1" class="w-full">
                   </div>
                 </div>
                 <!-- Snap to Grid -->
@@ -328,7 +343,9 @@
                   <label class="text-xs text-gray-300">Snap Figures to Grid</label>
                   <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="grid-snap-toggle" class="sr-only peer">
-                    <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    <div
+                      class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500">
+                    </div>
                   </label>
                 </div>
               </div>
@@ -389,10 +406,12 @@
     </div>
     <!-- Confirmation navigation (Confirm/Cancel) - shown during preview -->
     <div id="nav-confirm" class="hidden flex">
-      <button id="confirm-preview-btn" class="flex-1 py-4 text-center text-sm font-medium bg-green-600 hover:bg-green-500 text-white">
+      <button id="confirm-preview-btn"
+        class="flex-1 py-4 text-center text-sm font-medium bg-green-600 hover:bg-green-500 text-white">
         Confirm
       </button>
-      <button id="cancel-preview-btn" class="flex-1 py-4 text-center text-sm font-medium bg-gray-700 hover:bg-gray-600 text-white">
+      <button id="cancel-preview-btn"
+        class="flex-1 py-4 text-center text-sm font-medium bg-gray-700 hover:bg-gray-600 text-white">
         Cancel
       </button>
     </div>
