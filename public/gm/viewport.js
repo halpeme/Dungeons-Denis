@@ -4,8 +4,7 @@
  */
 
 import {
-    viewport, MIN_ZOOM, MAX_ZOOM, mapCanvas, mapImage, MODE, currentMode, isPanning,
-    setIsPanning
+    viewport, MIN_ZOOM, MAX_ZOOM, mapCanvas, mapImage, MODE, currentMode, isPanning
 } from './state.js';
 
 // Forward declaration - will be set by canvas.js to avoid circular dependency

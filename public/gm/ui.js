@@ -191,15 +191,18 @@ export function updateDisplayModeStatus(mode) {
     elements.displayModeSelect.value = mode;
     elements.displayModeSelect.classList.remove('hidden');
 
-    // Subtle styling: Update parent's border and text brightness
-    const container = elements.displayModeSelect.parentElement;
-    if (container) {
-        container.className = 'border-b transition-all duration-300 ' +
-            (mode === 'map' ? 'border-amber-500/60' : 'border-amber-500/20');
+    // Enhanced styling: Update colors, borders, and shadows based on mode
+    if (mode === 'map') {
+        // Map mode: brighter and more prominent
+        elements.displayModeSelect.className =
+            'text-sm bg-gray-700 text-amber-400 px-3 py-1.5 font-mono uppercase focus:outline-none transition-all duration-300 ' +
+            'border border-amber-500/60 rounded-md shadow-lg hover:bg-gray-600 hover:border-amber-500/80 cursor-pointer';
+    } else {
+        // Blank mode: dimmer and subtle
+        elements.displayModeSelect.className =
+            'text-sm bg-gray-700 text-amber-500/80 px-3 py-1.5 font-mono uppercase focus:outline-none transition-all duration-300 ' +
+            'border border-gray-600 rounded-md shadow-md hover:bg-gray-600 hover:border-amber-500/50 cursor-pointer';
     }
-
-    elements.displayModeSelect.className = 'bg-transparent font-mono uppercase focus:outline-none transition-all duration-300 ' +
-        (mode === 'map' ? 'text-amber-400 text-xs' : 'text-amber-500/70 text-xs');
 }
 
 /**

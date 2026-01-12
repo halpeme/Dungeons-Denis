@@ -347,7 +347,7 @@ function handleGmMessage(socket: WebSocket, state: ConnectionState, message: WSM
 function handlePuzzleSubmit(socket: WebSocket, state: ConnectionState, payload: { puzzleId: string; answer: unknown }) {
   const session = sessionManager.getSession(state.sessionId!)!;
 
-  if (!session.currentPuzzle || session.currentPuzzle.id !== payload.puzzleId) {
+  if (!session.currentPuzzle || (session.currentPuzzle as any)?.id !== payload.puzzleId) {
     sendError(socket, 'INVALID_PUZZLE', 'No active puzzle with that ID');
     return;
   }
@@ -429,7 +429,6 @@ function sendCurrentStateToGm(socket: WebSocket, sessionId: string) {
   socket.send(JSON.stringify({
     type: 'session:state',
     payload: {
-      dungeonId: session.dungeonId,
       fogState: session.fogState,
       partyPosition: session.partyPosition,
       figures: session.figures,

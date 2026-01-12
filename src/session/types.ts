@@ -32,11 +32,13 @@ export interface Session {
   fogMask: string | null;    // Base64 fog mask
   gridConfig: GridConfig | null;  // Grid configuration
   // Legacy dungeon fields (deprecated)
-  dungeonId: string | null;
   fogState: number[][];
   partyPosition: { x: number; y: number };
   figures: Figure[];
-  displayMode: 'blank' | 'map';
+  displayMode: 'blank' | 'map' | 'handout' | 'decision' | 'puzzle';
+  currentHandout: string | null;
+  currentDecision: unknown | null;
+  currentPuzzle: unknown | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -51,12 +53,14 @@ export interface SessionRow {
   id: string;
   join_code: string;
   gm_token: string;
-  dungeon_id: string | null;
   fog_state: string;
   party_position: string;
   figures: string;
   grid_config: string | null;
   display_mode: string;
+  current_handout: string | null;
+  current_decision: string | null;
+  current_puzzle: string | null;
   created_at: number;
   updated_at: number;
 }

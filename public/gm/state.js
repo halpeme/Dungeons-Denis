@@ -136,41 +136,17 @@ export function updateGrid(updates) {
     if ('unitScale' in updates) gridConfig.unitScale = updates.unitScale;
 }
 
-// === INDIVIDUAL SETTERS (kept for backward compatibility) ===
-export function setWs(value) { ws = value; }
-export function setSessionId(value) { sessionId = value; }
-export function setGmToken(value) { gmToken = value; }
-export function setJoinCode(value) { joinCode = value; }
+// === INDIVIDUAL SETTERS (for simple state updates) ===
 export function setMapImage(value) { mapImage = value; }
-export function setMapCanvas(value) { mapCanvas = value; }
-export function setMapCtx(value) { mapCtx = value; }
-export function setFogCanvas(value) { fogCanvas = value; }
-export function setFogCtx(value) { fogCtx = value; }
-export function setFogDataCanvas(value) { fogDataCanvas = value; }
-export function setFogDataCtx(value) { fogDataCtx = value; }
-export function setPreviewCanvas(value) { previewCanvas = value; }
-export function setPreviewCtx(value) { previewCtx = value; }
-export function setPreviewDataCanvas(value) { previewDataCanvas = value; }
-export function setPreviewDataCtx(value) { previewDataCtx = value; }
-export function setBrushSizeValue(value) { brushSize = value; }
-export function setIsRevealing(value) { isRevealing = value; }
-export function setIsDrawing(value) { isDrawing = value; }
 export function setHasPreview(value) { hasPreview = value; }
-export function setCurrentMode(value) { currentMode = value; }
-export function setIsSettingsModalOpen(value) { isSettingsModalOpen = value; }
-export function setIsPanning(value) { isPanning = value; }
-export function setLastPanX(value) { lastPanX = value; }
-export function setLastPanY(value) { lastPanY = value; }
-export function setFigureCanvas(value) { figureCanvas = value; }
-export function setFigureCtx(value) { figureCtx = value; }
+export function setIsDrawing(value) { isDrawing = value; }
 export function setFigures(value) { figures = value; }
 export function setSelectedFigureType(value) { selectedFigureType = value; }
 export function setSelectedPlacedFigure(value) { selectedPlacedFigure = value; }
-export function setLastFigureTapTime(value) { lastFigureTapTime = value; }
-export function setIsFigurePaletteOpen(value) { isFigurePaletteOpen = value; }
+export function setCurrentMode(value) { currentMode = value; }
+export function setIsSettingsModalOpen(value) { isSettingsModalOpen = value; }
+export function setBrushSizeValue(value) { brushSize = value; }
 export function setActivePing(value) { activePing = value; }
-export function setGridCanvas(value) { gridCanvas = value; }
-export function setGridCtx(value) { gridCtx = value; }
 
 // === PRESET MAPS ===
 export const presetMaps = [

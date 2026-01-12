@@ -61,9 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Handle window resize
 window.addEventListener('resize', () => {
   resizeCanvas();
-  if (currentDungeon) {
-    renderMap();
-  }
+  renderMap();
 });
 
 function resizeCanvas() {

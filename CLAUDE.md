@@ -15,7 +15,6 @@
 
 ```bash
 npm run dev           # Start dev server (port 3001) ← PRIMARY
-npm run test          # Run Vitest tests
 npm run build         # Compile TypeScript
 npm run download-maps # Download Splittermond preset maps
 ```

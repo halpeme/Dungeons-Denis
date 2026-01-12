@@ -35,11 +35,13 @@ export class SessionManager {
       mapImage: null,
       fogMask: null,
       gridConfig: null,
-      dungeonId: null,
       fogState: [],
       partyPosition: { x: 0, y: 0 },
       figures: [],
       displayMode: 'blank',
+      currentHandout: null,
+      currentDecision: null,
+      currentPuzzle: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -108,10 +110,6 @@ export class SessionManager {
       mapData.set(id, currentMapData);
     }
 
-    if (updates.dungeonId !== undefined) {
-      fields.push('dungeon_id = ?');
-      values.push(updates.dungeonId);
-    }
     if (updates.fogState !== undefined) {
       fields.push('fog_state = ?');
       values.push(JSON.stringify(updates.fogState));
@@ -131,6 +129,18 @@ export class SessionManager {
     if (updates.displayMode !== undefined) {
       fields.push('display_mode = ?');
       values.push(updates.displayMode);
+    }
+    if (updates.currentHandout !== undefined) {
+      fields.push('current_handout = ?');
+      values.push(updates.currentHandout);
+    }
+    if (updates.currentDecision !== undefined) {
+      fields.push('current_decision = ?');
+      values.push(updates.currentDecision ? JSON.stringify(updates.currentDecision) : null);
+    }
+    if (updates.currentPuzzle !== undefined) {
+      fields.push('current_puzzle = ?');
+      values.push(updates.currentPuzzle ? JSON.stringify(updates.currentPuzzle) : null);
     }
 
     if (fields.length === 0) return;
@@ -276,11 +286,13 @@ export class SessionManager {
       mapImage: sessionMapData.mapImage,
       fogMask: sessionMapData.fogMask,
       gridConfig: row.grid_config ? JSON.parse(row.grid_config) : null,
-      dungeonId: row.dungeon_id,
       fogState: JSON.parse(row.fog_state),
       partyPosition: JSON.parse(row.party_position),
       figures: row.figures ? JSON.parse(row.figures) : [],
       displayMode: row.display_mode as Session['displayMode'],
+      currentHandout: row.current_handout,
+      currentDecision: row.current_decision ? JSON.parse(row.current_decision) : null,
+      currentPuzzle: row.current_puzzle ? JSON.parse(row.current_puzzle) : null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
